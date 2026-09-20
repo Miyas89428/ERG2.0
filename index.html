@@ -188,11 +188,12 @@
       50% { transform: scale(1.06); filter: drop-shadow(0 0 24px rgba(52, 211, 153, 1)); }
     }
 
+    /* 指令 2: 擴大桌位佈局容器以適應放大後的姓名條 */
     .circular-table-area {
       position: relative;
       width: 100%;
-      max-width: 440px;
-      height: 390px;
+      max-width: 480px;
+      height: 430px;
       margin: 0 auto;
     }
 
@@ -320,20 +321,20 @@
           </button>
         </div>
 
-        <!-- Today's Leave List Card (Directive 3) -->
+        <!-- Today's Leave List Card (指令 3: 連動萬年曆點選日期) -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-user-xmark text-rose-500"></i> 請假/晚到名單
             </h3>
-            <input type="date" id="teacherLeaveFilterDate" onchange="renderLeaveList()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50 text-slate-600">
+            <input type="date" id="teacherLeaveFilterDate" onchange="onTeacherLeaveDateChange()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50 text-slate-600 cursor-pointer">
           </div>
 
           <button onclick="openLeaveModal()" class="w-full mb-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold py-2 rounded-xl transition-colors flex items-center justify-center gap-1 shadow-sm">
             <i class="fa-solid fa-pen-to-square"></i> 填寫假單
           </button>
 
-          <!-- 紀錄列表區塊：便利確認是否申請成功 -->
+          <!-- 紀錄列表區塊：顯示萬年曆所選日期請假名單 -->
           <div id="teacherLeaveContainer" class="space-y-2 max-h-56 overflow-y-auto pr-1">
             <p class="text-xs text-slate-400 text-center py-4">今日暫無請假紀錄</p>
           </div>
@@ -393,7 +394,7 @@
       <!-- Right Column (3 cols in lg) -->
       <div class="lg:col-span-3 space-y-6">
         
-        <!-- Classroom Config Sidebar (Directive 2, 4, 5) -->
+        <!-- Classroom Config Sidebar -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
@@ -408,7 +409,6 @@
           <div id="classroomForm" class="space-y-3 bg-slate-50 p-3 rounded-xl text-xs">
             <div>
               <label class="block font-medium text-slate-600 mb-1">教室編號 *</label>
-              <!-- 指令 4: 監聽輸入狀況以比對歷史資料 -->
               <input type="text" id="cfgClassId" oninput="onClassIdInputChange()" placeholder="例：ER101" class="w-full p-2 border rounded-lg bg-white uppercase font-mono">
             </div>
             <div>
@@ -417,9 +417,7 @@
             </div>
             <div>
               <label class="block font-medium text-slate-600 mb-1">組別與學生名單</label>
-              <!-- 指令 2: 提示詞修改為指定內容 -->
               <p class="text-[10px] text-slate-400 mb-1">組別：學生姓名、學生姓名、學生姓名</p>
-              <!-- 指令 2: 輸入欄位框保留空白即可，無 placeholder -->
               <textarea id="cfgClassStudents" rows="5" class="w-full p-2 border rounded-lg bg-white font-mono text-[11px]"></textarea>
             </div>
             
@@ -443,10 +441,10 @@
             </button>
           </div>
 
-          <!-- Google Spreadsheet URL Sync Config -->
+          <!-- Google Spreadsheet URL Sync Config (指令 4) -->
           <div class="pt-2 border-t border-slate-100 space-y-2">
             <label class="block font-bold text-xs text-slate-700">Google 試算表嵌入網址</label>
-            <input type="url" id="cfgSheetUrl" placeholder="https://docs.google.com/.../pubhtml?widget=true" class="w-full text-xs p-2 border rounded-lg">
+            <input type="url" id="cfgSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full text-xs p-2 border rounded-lg">
             <button onclick="saveSheetUrl()" class="w-full bg-slate-700 hover:bg-slate-800 text-white text-xs py-1.5 rounded-lg transition-colors shadow-sm">
               儲存試算表網址
             </button>
@@ -495,23 +493,24 @@
         <!-- Student Seating Map Card -->
         <div class="bg-white/90 rounded-3xl p-6 shadow-sm border border-slate-200/80">
           
-          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
-            <div>
+          <!-- 指令 1: 縮小統計欄位寬度，使標題能在同一行完整呈現 -->
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+            <div class="shrink-0">
               <span id="studentGroupTitleBadge" class="bg-sky-100 text-sky-800 text-xs font-bold px-3 py-1 rounded-full">已選擇組別</span>
-              <h3 class="font-bold text-lg text-slate-800 mt-1">點擊個人姓名條完成簽到</h3>
+              <h3 class="font-bold text-base sm:text-lg text-slate-800 mt-1 whitespace-nowrap">點擊個人姓名條完成點名</h3>
             </div>
 
-            <!-- Leaderboard -->
-            <div class="bg-amber-50 border border-amber-200/60 p-3 rounded-2xl flex flex-col gap-1.5 text-xs shadow-sm w-full sm:w-auto">
-              <div class="flex items-center gap-2">
+            <!-- Leaderboard (縮小寬度與內距，確保排版緊湊) -->
+            <div class="bg-amber-50/90 border border-amber-200/60 px-2.5 py-1.5 rounded-xl flex flex-col gap-1 text-[11px] shadow-sm w-full sm:w-auto shrink max-w-xs">
+              <div class="flex items-center gap-1.5">
                 <span class="font-bold text-amber-700 flex items-center gap-1 shrink-0">🏆 到齊順序：</span>
-                <div id="studentRankList" class="flex gap-1.5 flex-wrap">
+                <div id="studentRankList" class="flex gap-1 flex-wrap">
                   <span class="text-slate-400 italic">尚無組別到齊</span>
                 </div>
               </div>
-              <div class="border-t border-amber-200/60 pt-1.5 flex items-center gap-2 text-amber-900">
+              <div class="border-t border-amber-200/60 pt-1 flex items-center gap-1.5 text-amber-900">
                 <span class="font-bold text-amber-700 shrink-0 flex items-center gap-1">🥇 第一名累積次數：</span>
-                <div id="studentFirstPlaceStats" class="flex flex-wrap gap-1.5 font-medium">
+                <div id="studentFirstPlaceStats" class="flex flex-wrap gap-1 font-medium">
                   <span class="text-slate-400 italic">尚無數據</span>
                 </div>
               </div>
@@ -579,7 +578,7 @@
     </div>
   </div>
 
-  <!-- MODAL 3: Leave Application Modal (Directive 3) -->
+  <!-- MODAL 3: Leave Application Modal -->
   <div id="modalLeaveForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -655,7 +654,7 @@
     </div>
   </div>
 
-  <!-- MODAL 4: Red Grid Modal -->
+  <!-- MODAL 4: Red Grid Modal (指令 4: 修復 Google 試算表嵌入) -->
   <div id="modalRedGrid" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 hidden flex items-center justify-center p-2 sm:p-6">
     <div class="bg-white rounded-3xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl overflow-hidden border border-slate-100">
       <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
@@ -787,7 +786,7 @@
     </div>
   </div>
 
-  <!-- Firebase SDK Modules (指令 1 & 5 跨裝置永久儲存與密碼綁定) -->
+  <!-- Firebase SDK Modules -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -797,14 +796,14 @@
       db: null,
       auth: null,
       appId: typeof __app_id !== 'undefined' ? __app_id : 'erchong-attendance-app',
-      teacherPassword: '', // 綁定對應之教師權限密碼 (指令 5)
+      teacherPassword: '',
       currentClassId: 'ER101',
       currentView: 'home',
       isTeacherAuthenticated: false,
       selectedStudentGroup: '',
       teacherSelectedDate: getCSTDateString(),
       studentSelectedDate: getCSTDateString(),
-      savedClassrooms: {}, // 儲存該密碼下管理的所有教室清單 (指令 1, 4, 5)
+      savedClassrooms: {},
       classData: {
         classId: 'ER101',
         description: '資優班綜合課程',
@@ -858,7 +857,6 @@
         await signInAnonymously(auth);
         console.log("Firebase initialized successfully!");
 
-        // 從 LocalStorage 載入快取備份
         loadLocalBackup();
       } catch (err) {
         console.warn("Firestore running in isolated/fallback mode:", err);
@@ -875,7 +873,6 @@
       } catch(e) {}
     }
 
-    // 指令 1 & 5: 從雲端根據教師密碼監聽並同步所有教室資料
     async function setupTeacherRealtimeSync(password) {
       const { db, appId } = window.appState;
       if (!db || !password) return;
@@ -888,7 +885,6 @@
           const data = docSnap.data();
           window.appState.savedClassrooms = data.classrooms || {};
           
-          // 如果當前選擇的教室在此密碼資料中，進行載入
           if (window.appState.currentClassId && window.appState.savedClassrooms[window.appState.currentClassId]) {
             window.appState.classData = window.appState.savedClassrooms[window.appState.currentClassId];
           }
@@ -904,7 +900,6 @@
       });
     }
 
-    // 指令 1 & 5: 儲存教室資料並綁定對應之教師密碼與公開查詢節點
     async function saveClassroomToFirestore() {
       const { db, appId, teacherPassword, currentClassId, classData, savedClassrooms } = window.appState;
       
@@ -929,7 +924,6 @@
           }, { merge: true });
         }
 
-        // 供學生跨裝置搜尋進入教室之公開節點 (指令 1)
         if (currentClassId && classData) {
           const publicClassRef = doc(db, 'artifacts', appId, 'public', 'data', 'public_classrooms', currentClassId.toUpperCase());
           await setDoc(publicClassRef, classData, { merge: true });
@@ -964,6 +958,22 @@
     function getCSTTimeString() {
       const d = getCSTDateObj();
       return d.toTimeString().split(' ')[0];
+    }
+
+    /* 指令 4: 自動輔助轉換 Google 試算表連結為可正常 iframe 嵌入的 URL */
+    function getEmbeddableGoogleSheetUrl(url) {
+      if (!url) return '';
+      let u = url.trim();
+      if (u.includes('docs.google.com/spreadsheets')) {
+        if (u.includes('/edit')) {
+          u = u.replace(/\/edit.*$/, '/pubhtml?widget=true');
+        } else if (u.includes('/view')) {
+          u = u.replace(/\/view.*$/, '/pubhtml?widget=true');
+        } else if (!u.includes('/pubhtml') && !u.includes('/preview')) {
+          u = u.replace(/\/+$/, '') + '/pubhtml?widget=true';
+        }
+      }
+      return u;
     }
 
     function startCSTClock() {
@@ -1061,7 +1071,6 @@
       }
     }
 
-    // 指令 5: 教師密碼登入驗證與對應密碼資料綁定載入
     function verifyTeacherPassword() {
       const pwdInput = document.getElementById('teacherAuthPassword').value.trim();
       if (!pwdInput) {
@@ -1102,7 +1111,6 @@
 
       let classObj = window.appState.savedClassrooms ? window.appState.savedClassrooms[inputId] : null;
 
-      // 若本機快取無資料，嘗試從雲端公開門戶獲取 (指令 1)
       if (!classObj && window.appState.db) {
         try {
           const publicDocRef = doc(window.appState.db, 'artifacts', window.appState.appId, 'public', 'data', 'public_classrooms', inputId);
@@ -1149,14 +1157,16 @@
     let redGridCountdownVal = 30;
     let countdownTimer = null;
 
+    /* 指令 4: 排除嵌入問題，讓儲存的 Google 試算表能順利載入與呈現 */
     function openRedGridModal() {
-      const url = window.appState.classData.sheetUrl;
+      const rawUrl = window.appState.classData.sheetUrl;
+      const embedUrl = getEmbeddableGoogleSheetUrl(rawUrl);
       const iframe = document.getElementById('redGridIframe');
       
-      if (url) {
-        iframe.src = url;
+      if (embedUrl) {
+        iframe.src = embedUrl;
       } else {
-        iframe.srcdoc = `<div style="display:flex;height:100%;align-items:center;justify-content:center;font-family:sans-serif;color:#64748b;">尚未設定 Google 試算表嵌入網址，請先由教師設定。</div>`;
+        iframe.srcdoc = `<div style="display:flex;height:100%;align-items:center;justify-content:center;font-family:sans-serif;color:#64748b;font-weight:bold;">尚未設定 Google 試算表嵌入網址，請先由教師進行設定。</div>`;
       }
 
       document.getElementById('modalRedGrid').classList.remove('hidden');
@@ -1171,8 +1181,8 @@
         if (cdElem) cdElem.innerText = `${redGridCountdownVal}s`;
         if (redGridCountdownVal <= 0) {
           redGridCountdownVal = 30;
-          if (url && !document.getElementById('modalRedGrid').classList.contains('hidden')) {
-            iframe.src = url;
+          if (embedUrl && !document.getElementById('modalRedGrid').classList.contains('hidden')) {
+            iframe.src = embedUrl;
             showToast('🔄 Google 試算表內容已自動更新', 'info');
           }
         }
@@ -1188,6 +1198,12 @@
       document.getElementById('teacherLeaveFilterDate').value = window.appState.teacherSelectedDate;
       document.getElementById('teacherViewDate').value = window.appState.teacherSelectedDate;
       document.getElementById('studentAnnounceDate').value = window.appState.studentSelectedDate;
+
+      // 指令 4: 自動帶入目前儲存的嵌入網址
+      const sheetInput = document.getElementById('cfgSheetUrl');
+      if (sheetInput) {
+        sheetInput.value = window.appState.classData.sheetUrl || '';
+      }
 
       renderAnnouncements();
       renderLeaveList();
@@ -1282,7 +1298,6 @@
       document.getElementById('modalLeaveForm').classList.remove('hidden');
     }
 
-    // 指令 3: 請假單送出後即時呈現於下方記錄列表
     function submitLeaveForm() {
       const type = document.getElementById('leaveType').value;
       const startDate = document.getElementById('leaveStartDate').value;
@@ -1342,7 +1357,6 @@
       closeModal('modalLeaveForm');
       showToast(`✅ 已新增 ${student} 的${type === '晚到' ? '晚到登記' : '假單'}`, 'success');
       
-      // 即時重新渲染紀錄列表供確認 (指令 3)
       renderLeaveList();
       renderSeatingMap('teacher');
       renderSeatingMap('student');
@@ -1373,8 +1387,21 @@
       });
     }
 
-    // 指令 3: 渲染下方記錄列表
+    /* 指令 3: 當點選萬年曆日期時，同步連動更新當前日期的請假/晚到名單 */
+    function onTeacherLeaveDateChange() {
+      const val = document.getElementById('teacherLeaveFilterDate').value;
+      if (val) {
+        window.appState.teacherSelectedDate = val;
+      }
+      renderLeaveList();
+      renderSeatingMap('teacher');
+    }
+
     function renderLeaveList() {
+      const leaveDateElem = document.getElementById('teacherLeaveFilterDate');
+      if (leaveDateElem && leaveDateElem.value) {
+        window.appState.teacherSelectedDate = leaveDateElem.value;
+      }
       const tDate = window.appState.teacherSelectedDate || getCSTDateString();
       const sDate = window.appState.studentSelectedDate || getCSTDateString();
 
@@ -1386,7 +1413,7 @@
 
       if (tContainer) {
         if (tLeaves.length === 0) {
-          tContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">今日無請假與晚到紀錄</p>`;
+          tContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">(${tDate}) 暫無請假紀錄</p>`;
         } else {
           tContainer.innerHTML = tLeaves.map(l => {
             const isLate = (l.type === '晚到');
@@ -1429,7 +1456,7 @@
       }
     }
 
-    function calculateStudentCircularPosition(index, totalStudents, radiusPercent = 38) {
+    function calculateStudentCircularPosition(index, totalStudents, radiusPercent = 39) {
       if (totalStudents === 1) {
         return { left: '50%', top: '15%' };
       }
@@ -1514,35 +1541,36 @@
         const isCompleted = completedList.includes(group.name);
         const totalN = group.students.length;
 
+        /* 指令 2: 放大各組姓名條尺寸與字體，方便觀看與點擊 */
         const studentCardsHtml = group.students.map((std, idx) => {
-          const pos = calculateStudentCircularPosition(idx, totalN, 38);
+          const pos = calculateStudentCircularPosition(idx, totalN, 39);
           const hasAttended = !!attendance[std];
           const timeStr = attendance[std] || '';
           const leaveObj = leavesToday.find(l => l.student === std);
           const isLeave = !!leaveObj;
           const isLateLeave = leaveObj && leaveObj.type === '晚到';
 
-          let chipClass = 'bg-white/90 border-slate-200/90 text-slate-700 hover:border-sky-400 hover:shadow-md';
+          let chipClass = 'bg-white/95 border-slate-300 text-slate-800 hover:border-sky-500 hover:shadow-md';
           let stateBadge = '';
 
           if (isLateLeave && !hasAttended) {
             chipClass = 'bg-amber-100/90 border-amber-300 text-amber-900 font-medium shadow-sm hover:bg-amber-200';
-            stateBadge = `<span class="text-[9px] bg-amber-200 text-amber-800 px-1 rounded mt-0.5 truncate max-w-full">晚到(${leaveObj.reason})</span>`;
+            stateBadge = `<span class="text-[10px] sm:text-[11px] bg-amber-200 text-amber-800 px-1.5 rounded mt-0.5 truncate max-w-full font-medium">晚到(${leaveObj.reason})</span>`;
           } else if (isLeave && !isLateLeave) {
             chipClass = 'bg-rose-50 border-rose-200 text-rose-600 opacity-80';
-            stateBadge = `<span class="text-[9px] bg-rose-200 text-rose-800 px-1 rounded mt-0.5 truncate max-w-full">${leaveObj.reason}</span>`;
+            stateBadge = `<span class="text-[10px] sm:text-[11px] bg-rose-200 text-rose-800 px-1.5 rounded mt-0.5 truncate max-w-full font-medium">${leaveObj.reason}</span>`;
           }
 
           if (hasAttended) {
-            chipClass = 'bg-emerald-50 border-emerald-400 text-emerald-800 shadow-md font-semibold hover:bg-emerald-100';
-            stateBadge = `<span class="text-[10px] text-emerald-600 font-mono mt-0.5">${timeStr} 到齊</span>`;
+            chipClass = 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-md font-semibold hover:bg-emerald-100';
+            stateBadge = `<span class="text-[10px] sm:text-[11px] text-emerald-600 font-mono font-semibold mt-0.5">${timeStr} 到齊</span>`;
           }
 
           return `
-            <div style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: translate(-50%, -50%); z-index: 20;" class="w-[88px] sm:w-[96px] h-[40px] sm:h-[44px]">
+            <div style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: translate(-50%, -50%); z-index: 20;" class="w-[110px] sm:w-[125px] h-[50px] sm:h-[56px]">
               <button onclick="toggleAttendance('${std}', '${group.name}', '${curDate}')" 
-                      class="w-full h-full p-1.5 rounded-2xl border ${chipClass} text-xs transition-all flex flex-col items-center justify-center shadow-sm active:scale-95 overflow-hidden">
-                <div class="flex items-center gap-1 font-bold text-xs truncate max-w-full">
+                      class="w-full h-full p-1.5 sm:p-2 rounded-2xl border ${chipClass} transition-all flex flex-col items-center justify-center shadow-md hover:shadow-lg active:scale-95 overflow-hidden cursor-pointer">
+                <div class="flex items-center gap-1 font-bold text-sm sm:text-base truncate max-w-full">
                   ${hasAttended ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>' : ''}
                   ${isLateLeave && !hasAttended ? '<i class="fa-solid fa-clock text-amber-600"></i>' : ''}
                   ${isLeave && !isLateLeave ? '<i class="fa-solid fa-user-minus text-rose-400"></i>' : ''}
@@ -1802,7 +1830,7 @@
 
       const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
       container.innerHTML = completedList.map((gName, idx) => `
-        <span class="bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 animate-bounce">
+        <span class="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 animate-bounce shrink-0">
           ${medals[idx] || '🎖️'} ${gName}
         </span>
       `).join('');
@@ -1823,7 +1851,7 @@
 
       const html = groups.map(g => {
         const cnt = counts[g.name] || 0;
-        return `<span class="bg-white border border-amber-200 px-2.5 py-0.5 rounded-lg text-xs font-bold text-slate-700 shadow-xs">${g.name}：<span class="text-amber-600 font-mono">${cnt}</span> 次</span>`;
+        return `<span class="bg-white border border-amber-200 px-2 py-0.5 rounded-lg text-[11px] font-bold text-slate-700 shadow-xs shrink-0">${g.name}：<span class="text-amber-600 font-mono">${cnt}</span> 次</span>`;
       }).join('');
 
       if (teacherContainer) teacherContainer.innerHTML = html;
@@ -1846,23 +1874,24 @@
       form.classList.toggle('hidden');
     }
 
-    // 指令 4: 當輸入教室編號時，即時比對歷史資料並自動帶入或清空
     function onClassIdInputChange() {
       const inputId = document.getElementById('cfgClassId').value.trim().toUpperCase();
       const descInput = document.getElementById('cfgClassDesc');
       const studentsInput = document.getElementById('cfgClassStudents');
+      const sheetInput = document.getElementById('cfgSheetUrl');
 
       if (!inputId) {
         descInput.value = '';
         studentsInput.value = '';
+        if (sheetInput) sheetInput.value = '';
         return;
       }
 
       const savedClass = window.appState.savedClassrooms ? window.appState.savedClassrooms[inputId] : null;
 
       if (savedClass) {
-        // 已有此教室編號 -> 帶出歷史資料供直接編輯 (指令 4)
         descInput.value = savedClass.description || '';
+        if (sheetInput) sheetInput.value = savedClass.sheetUrl || '';
         if (savedClass.groups && Array.isArray(savedClass.groups)) {
           studentsInput.value = savedClass.groups.map(g => `${g.name}：${g.students.join('、')}`).join('\n');
         } else {
@@ -1870,13 +1899,12 @@
         }
         showToast(`已自動載入舊有教室 [${inputId}] 資料供編輯`, 'info');
       } else {
-        // 尚未建立此教室 -> 各欄位清空供直接輸入 (指令 4)
         descInput.value = '';
         studentsInput.value = '';
+        if (sheetInput) sheetInput.value = '';
       }
     }
 
-    // 指令 1 & 5: 儲存教室設定並綁定對應教師密碼
     function saveClassroomConfig() {
       const cid = document.getElementById('cfgClassId').value.trim().toUpperCase();
       const desc = document.getElementById('cfgClassDesc').value.trim();
@@ -1965,7 +1993,6 @@
         window.appState.currentClassId = cid;
         window.appState.classData = window.appState.savedClassrooms[cid];
         
-        // 載入填寫欄位
         document.getElementById('cfgClassId').value = cid;
         onClassIdInputChange();
 
@@ -1974,11 +2001,19 @@
       }
     }
 
+    /* 指令 4: 儲存試算表網址時自動進行優化轉換並儲存 */
     function saveSheetUrl() {
-      const url = document.getElementById('cfgSheetUrl').value.trim();
-      window.appState.classData.sheetUrl = url;
+      const rawUrl = document.getElementById('cfgSheetUrl').value.trim();
+      if (!rawUrl) {
+        showToast('⚠️ 請輸入有效的 Google 試算表網址', 'error');
+        return;
+      }
+      const formattedUrl = getEmbeddableGoogleSheetUrl(rawUrl);
+      window.appState.classData.sheetUrl = formattedUrl;
+      document.getElementById('cfgSheetUrl').value = formattedUrl;
+
       if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast('📊 Google 試算表嵌入網址已更新', 'success');
+      showToast('📊 Google 試算表嵌入網址已成功儲存與更新！', 'success');
     }
 
     function openTardyModal() {

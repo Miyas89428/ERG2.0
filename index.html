@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>🏫 二重國小資優班 課程點名系統</title>
 
   <!-- Tailwind CSS CDN -->
@@ -40,9 +40,16 @@
   </script>
 
   <style>
-    /* 全站字體按比例放大（提升至 130%）與標楷體設定 */
+    /* 全站字體按比例放大（電腦端預設 125%，行動裝置自適應調整） */
     html {
-      font-size: 130%;
+      font-size: 125%;
+      touch-action: manipulation;
+    }
+
+    @media (max-width: 640px) {
+      html {
+        font-size: 105%;
+      }
     }
 
     body, input, select, textarea, button, h1, h2, h3, h4, h5, h6 {
@@ -52,6 +59,7 @@
     body {
       background: linear-gradient(135deg, #F0FDF4 0%, #E0F2FE 50%, #FAF5FF 100%);
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     /* 萬年曆：工具列頂部按鈕 */
@@ -154,18 +162,25 @@
       opacity: 1 !important;
     }
 
-    /* 六角形桌位與環形佈局 */
+    /* 六角形桌位與環形佈局（支援手機/平板/電腦各尺寸自適應） */
     .hexagon-container {
       position: absolute;
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: 125px;
-      height: 125px;
+      width: 110px;
+      height: 110px;
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 10;
+    }
+
+    @media (min-width: 640px) {
+      .hexagon-container {
+        width: 125px;
+        height: 125px;
+      }
     }
 
     .hexagon {
@@ -192,8 +207,14 @@
       position: relative;
       width: 100%;
       max-width: 480px;
-      height: 430px;
+      height: 360px;
       margin: 0 auto;
+    }
+
+    @media (min-width: 640px) {
+      .circular-table-area {
+        height: 430px;
+      }
     }
 
     ::-webkit-scrollbar {
@@ -219,25 +240,25 @@
   <header class="bg-white/85 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/60 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('home')">
-        <div class="bg-emerald-500 text-white w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-md transform hover:rotate-6 transition-transform">
+        <div class="bg-emerald-500 text-white w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-md transform hover:rotate-6 transition-transform shrink-0">
           🏫
         </div>
         <div>
-          <h1 class="font-fun font-bold text-lg sm:text-xl text-slate-800 tracking-wide flex items-center gap-2">
-            二重國小資優班 <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-sans font-medium">點名系統</span>
+          <h1 class="font-fun font-bold text-base sm:text-xl text-slate-800 tracking-wide flex items-center gap-1.5 sm:gap-2">
+            二重國小資優班 <span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-sans font-medium whitespace-nowrap">點名系統</span>
           </h1>
-          <p class="text-xs text-slate-500 hidden sm:block">Erchong Elementary Gifted Class Attendance System</p>
+          <p class="text-[10px] sm:text-xs text-slate-500 hidden sm:block">Erchong Elementary Gifted Class Attendance System</p>
         </div>
       </div>
 
       <!-- Realtime CST Clock & Active Class Badge -->
-      <div class="flex items-center space-x-2 sm:space-x-4">
-        <div id="activeClassBadge" class="hidden items-center gap-2 bg-sky-50 border border-sky-200 text-sky-700 px-3 py-1 rounded-xl text-xs sm:text-sm font-medium">
+      <div class="flex items-center space-x-1.5 sm:space-x-4">
+        <div id="activeClassBadge" class="hidden items-center gap-1 sm:gap-2 bg-sky-50 border border-sky-200 text-sky-700 px-2 sm:px-3 py-1 rounded-xl text-xs sm:text-sm font-medium">
           <i class="fa-solid fa-door-open text-sky-500"></i>
           <span id="activeClassText">教室：-</span>
         </div>
 
-        <div class="bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60 flex items-center gap-2 text-xs sm:text-sm font-mono text-slate-700 font-semibold shadow-inner">
+        <div class="bg-slate-100/80 px-2 sm:px-3 py-1.5 rounded-xl border border-slate-200/60 flex items-center gap-1.5 text-xs sm:text-sm font-mono text-slate-700 font-semibold shadow-inner">
           <i class="fa-regular fa-clock text-emerald-600 animate-pulse"></i>
           <span id="cstClock">CST 00:00:00</span>
         </div>
@@ -250,49 +271,49 @@
   </header>
 
   <!-- Notification Toast Container -->
-  <div id="toastContainer" class="fixed top-20 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toastContainer" class="fixed top-20 right-3 sm:right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-[90vw] sm:max-w-md"></div>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8">
 
     <!-- VIEW 1: Home Landing Screen -->
-    <section id="viewHome" class="flex flex-col items-center justify-center py-10 sm:py-16">
-      <div class="text-center max-w-2xl mb-12">
+    <section id="viewHome" class="flex flex-col items-center justify-center py-8 sm:py-16">
+      <div class="text-center max-w-2xl mb-8 sm:mb-12 px-2">
         <span class="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">Welcome</span>
-        <h2 class="text-3xl sm:text-4xl font-fun font-bold text-slate-800 mt-3 mb-4">歡迎來到 資優班課程點名大廳</h2>
-        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">請選擇您的使用身份</p>
+        <h2 class="text-2xl sm:text-4xl font-fun font-bold text-slate-800 mt-3 mb-3 sm:mb-4">歡迎來到 資優班課程點名大廳</h2>
+        <p class="text-slate-600 text-xs sm:text-base leading-relaxed">請選擇您的使用身份 (手機/平板/電腦可同步即時進入)</p>
       </div>
 
       <!-- Main Action Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 w-full max-w-4xl px-2">
         <!-- Card 1: Teacher Login -->
-        <div onclick="openTeacherAuthModal()" class="group bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border border-emerald-100 hover:border-emerald-300 transition-all cursor-pointer flex flex-col items-center text-center transform hover:-translate-y-1">
-          <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform shadow-sm">
+        <div onclick="openTeacherAuthModal()" class="group bg-white rounded-3xl p-5 sm:p-6 shadow-md hover:shadow-xl border border-emerald-100 hover:border-emerald-300 transition-all cursor-pointer flex flex-col items-center text-center transform hover:-translate-y-1">
+          <div class="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-sm">
             🔑
           </div>
-          <h3 class="font-bold text-lg text-slate-800 mb-2">教師權限登入</h3>
-          <span class="mt-6 text-xs font-semibold text-emerald-600 group-hover:underline flex items-center gap-1">
+          <h3 class="font-bold text-base sm:text-lg text-slate-800 mb-1 sm:mb-2">教師權限登入</h3>
+          <span class="mt-4 sm:mt-6 text-xs font-semibold text-emerald-600 group-hover:underline flex items-center gap-1">
             進入管理介面 <i class="fa-solid fa-arrow-right"></i>
           </span>
         </div>
 
         <!-- Card 2: Student Enter Classroom -->
-        <div onclick="openStudentClassModal()" class="group bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border border-sky-100 hover:border-sky-300 transition-all cursor-pointer flex flex-col items-center text-center transform hover:-translate-y-1">
-          <div class="w-16 h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform shadow-sm">
+        <div onclick="openStudentClassModal()" class="group bg-white rounded-3xl p-5 sm:p-6 shadow-md hover:shadow-xl border border-sky-100 hover:border-sky-300 transition-all cursor-pointer flex flex-col items-center text-center transform hover:-translate-y-1">
+          <div class="w-14 h-14 sm:w-16 sm:h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center text-2xl mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-sm">
             🎒
           </div>
-          <h3 class="font-bold text-lg text-slate-800 mb-2">進入課堂教室</h3>
-          <span class="mt-6 text-xs font-semibold text-sky-600 group-hover:underline flex items-center gap-1">
+          <h3 class="font-bold text-base sm:text-lg text-slate-800 mb-1 sm:mb-2">進入課堂教室</h3>
+          <span class="mt-4 sm:mt-6 text-xs font-semibold text-sky-600 group-hover:underline flex items-center gap-1">
             選擇組別點名 <i class="fa-solid fa-arrow-right"></i>
           </span>
         </div>
 
         <!-- Card 3: Query My Red Grid -->
-        <div onclick="openRedGridModal()" class="group bg-white rounded-3xl p-6 shadow-md hover:shadow-xl border border-amber-100 hover:border-amber-300 transition-all cursor-pointer flex flex-col items-center text-center transform hover:-translate-y-1">
-          <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform shadow-sm">
+        <div onclick="openRedGridModal()" class="group bg-white rounded-3xl p-5 sm:p-6 shadow-md hover:shadow-xl border border-amber-100 hover:border-amber-300 transition-all cursor-pointer flex flex-col items-center text-center transform hover:-translate-y-1">
+          <div class="w-14 h-14 sm:w-16 sm:h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center text-2xl mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-sm">
             📊
           </div>
-          <h3 class="font-bold text-lg text-slate-800 mb-2">查詢我的紅格子</h3>
-          <span class="mt-6 text-xs font-semibold text-amber-600 group-hover:underline flex items-center gap-1">
+          <h3 class="font-bold text-base sm:text-lg text-slate-800 mb-1 sm:mb-2">查詢我的紅格子</h3>
+          <span class="mt-4 sm:mt-6 text-xs font-semibold text-amber-600 group-hover:underline flex items-center gap-1">
             查看表格數據 <i class="fa-solid fa-arrow-right"></i>
           </span>
         </div>
@@ -306,7 +327,7 @@
       <div class="lg:col-span-3 space-y-6">
         
         <!-- Announcements & Homework Card -->
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+        <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-bullhorn text-emerald-500"></i> 重要公告與作業
@@ -321,7 +342,7 @@
         </div>
 
         <!-- Today's Leave List Card -->
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+        <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-user-xmark text-rose-500"></i> 請假/晚到名單
@@ -348,7 +369,7 @@
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex flex-col justify-between gap-3">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
             <div class="flex items-center gap-2 w-full sm:w-auto">
-              <div class="bg-amber-100 text-amber-700 p-2 rounded-xl text-lg shadow-sm">🏆</div>
+              <div class="bg-amber-100 text-amber-700 p-2 rounded-xl text-lg shadow-sm shrink-0">🏆</div>
               <div>
                 <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">全組到齊名次欄</div>
                 <div id="allPresentRankList" class="flex flex-wrap gap-1.5 mt-0.5 text-xs font-medium text-slate-700">
@@ -375,15 +396,15 @@
         </div>
 
         <!-- Seating Map Grid -->
-        <div class="bg-white/80 rounded-3xl p-6 shadow-sm border border-slate-200/80">
-          <div class="flex items-center justify-between mb-6">
+        <div class="bg-white/80 rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200/80">
+          <div class="flex items-center justify-between mb-4 sm:mb-6">
             <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-shapes text-sky-500"></i> 小組座位表
             </h3>
-            <span class="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">點擊姓名完成到班點名</span>
+            <span class="text-[11px] sm:text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">點擊姓名完成到班點名</span>
           </div>
 
-          <div id="teacherSeatingContainer" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div id="teacherSeatingContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             <!-- Dynamic Groups -->
           </div>
         </div>
@@ -394,7 +415,7 @@
       <div class="lg:col-span-3 space-y-6">
         
         <!-- Classroom Config Sidebar -->
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 space-y-4">
+        <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 space-y-4">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-sliders text-purple-500"></i> 教室設定與管理
@@ -411,7 +432,7 @@
               <input type="text" id="cfgClassId" oninput="onClassIdInputChange()" placeholder="數字/英文/英+數皆可" class="w-full p-2 border rounded-lg bg-white uppercase font-mono">
             </div>
             <div>
-              <label class="block font-medium text-slate-600 mb-1">說明 / 課程名稱</label>
+              <label class="block font-medium text-slate-600 mb-1">課程名稱/教室編號備註</label>
               <input type="text" id="cfgClassDesc" placeholder="例：領導課" class="w-full p-2 border rounded-lg bg-white">
             </div>
             <div>
@@ -453,26 +474,26 @@
 
       </div>
 
-      <!-- 右側隱藏式 QR CODE 欄位 -->
+      <!-- 右側隱藏式 QR CODE 欄位 (適合各裝置展開掃碼) -->
       <div id="teacherQrDrawer" class="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center transition-transform duration-300 translate-x-[calc(100%-3rem)]">
         <button id="qrDrawerToggleBtn" onclick="toggleQrDrawer()" class="bg-emerald-600 hover:bg-emerald-700 text-white w-12 h-36 rounded-l-2xl shadow-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border-l border-t border-b border-white/30 group" title="點擊展開/收合 QR Code">
           <i id="qrDrawerTriangleIcon" class="fa-solid fa-play text-sm transition-transform duration-300 -rotate-180 group-hover:scale-125"></i>
           <span class="text-xs font-bold tracking-widest [writing-mode:vertical-lr] select-none">QR CODE</span>
         </button>
 
-        <div class="bg-white/95 backdrop-blur-md p-6 rounded-l-3xl shadow-2xl border-l border-y border-slate-200/80 w-[360px] flex flex-col items-center text-center">
+        <div class="bg-white/95 backdrop-blur-md p-5 sm:p-6 rounded-l-3xl shadow-2xl border-l border-y border-slate-200/80 w-[300px] sm:w-[360px] flex flex-col items-center text-center">
           <div class="flex items-center justify-between w-full mb-4 pb-3 border-b border-slate-100">
             <span class="text-base font-bold text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-qrcode text-emerald-600 text-lg"></i> 網頁 QR Code
             </span>
           </div>
           
-          <div class="bg-white p-3.5 rounded-2xl shadow-inner border border-slate-200 mb-4">
-            <img id="qrCodeImg" src="" alt="網站 QR Code" class="w-72 h-72 object-contain rounded-xl">
+          <div class="bg-white p-3 rounded-2xl shadow-inner border border-slate-200 mb-4">
+            <img id="qrCodeImg" src="" alt="網站 QR Code" class="w-56 h-56 sm:w-72 sm:h-72 object-contain rounded-xl">
           </div>
           
           <p class="text-xs text-slate-600 leading-relaxed font-medium">
-            掃描上方 QR Code，即可進入網頁開始點名。
+            使用手機/平板掃描上方 QR Code，即可同步進入網頁進行點名。
           </p>
         </div>
       </div>
@@ -485,8 +506,8 @@
       <!-- Left Column (4 cols in lg) -->
       <div class="lg:col-span-4 space-y-6">
         
-        <!-- Announcements Card (指令 2 修正：動態自動調整高度以完整顯示內容) -->
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+        <!-- Announcements Card -->
+        <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
           <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-bullhorn text-emerald-500"></i> 重要公告與本週作業
@@ -499,7 +520,7 @@
         </div>
 
         <!-- Today's Leave List -->
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
+        <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80">
           <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2 mb-3">
             <i class="fa-solid fa-user-check text-sky-500"></i> 請假/晚到名單
           </h3>
@@ -514,7 +535,7 @@
       <div class="lg:col-span-8 space-y-6">
         
         <!-- Student Seating Map Card -->
-        <div class="bg-white/90 rounded-3xl p-6 shadow-sm border border-slate-200/80">
+        <div class="bg-white/90 rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200/80">
           
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
             <div class="shrink-0">
@@ -540,7 +561,7 @@
           </div>
 
           <!-- Dynamic Seating Area -->
-          <div id="studentSeatingContainer" class="flex items-center justify-center min-h-[420px]">
+          <div id="studentSeatingContainer" class="flex items-center justify-center min-h-[360px] sm:min-h-[420px]">
             <!-- Single group view -->
           </div>
 
@@ -589,7 +610,7 @@
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">或手動輸入教室編號 *</label>
-          <input type="text" id="studentInputClassId" placeholder="輸入教室編號 (例：ER101)" oninput="updateStudentGroupDropdown()" class="w-full text-sm p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-400 focus:outline-none uppercase font-mono">
+          <input type="text" id="studentInputClassId" placeholder="輸入教室編號" oninput="updateStudentGroupDropdown()" class="w-full text-sm p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-400 focus:outline-none uppercase font-mono">
         </div>
 
         <div>
@@ -610,7 +631,7 @@
 
   <!-- MODAL 3: Leave Application Modal -->
   <div id="modalLeaveForm" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
         <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
           <i class="fa-solid fa-file-pen text-rose-500"></i> 填寫請假單
@@ -855,7 +876,7 @@
     });
   </script>
 
-  <!-- Firebase SDK Modules & Cross-Device/Cross-Domain Sync -->
+  <!-- Firebase SDK Modules & 跨裝置同步 (手機/平板/電腦) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -922,7 +943,7 @@
         window.appState.auth = auth;
 
         await signInAnonymously(auth);
-        console.log("Firebase initialized successfully!");
+        console.log("Firebase initialized successfully across devices!");
 
         loadLocalBackup();
       } catch (err) {
@@ -1690,7 +1711,7 @@
       }
     }
 
-    function calculateStudentCircularPosition(index, totalStudents, radiusPercent = 39) {
+    function calculateStudentCircularPosition(index, totalStudents, radiusPercent = 38) {
       if (totalStudents === 1) {
         return { left: '50%', top: '15%' };
       }
@@ -1734,7 +1755,7 @@
 
       groups.forEach((group) => {
         const groupCard = document.createElement('div');
-        groupCard.className = 'bg-white/90 border border-slate-200/80 rounded-3xl p-4 flex flex-col items-center shadow-sm relative hover:border-sky-200 transition-all w-full';
+        groupCard.className = 'bg-white/90 border border-slate-200/80 rounded-3xl p-3 sm:p-4 flex flex-col items-center shadow-sm relative hover:border-sky-200 transition-all w-full';
 
         const checkedStudents = group.students.filter(s => {
           const hasAttended = !!attendance[s];
@@ -1780,9 +1801,9 @@
         const isCompleted = completedList.includes(group.name);
         const totalN = group.students.length;
 
-        /* 指令 1 修正：點擊姓名條保留姓名並正確顯示點擊時間 (時：分：秒) */
+        /* 點擊姓名條保留姓名並正確顯示點擊時間 (時：分：秒) */
         const studentCardsHtml = group.students.map((std, idx) => {
-          const pos = calculateStudentCircularPosition(idx, totalN, 39);
+          const pos = calculateStudentCircularPosition(idx, totalN, 38);
           const hasAttended = !!attendance[std];
           const timeStr = attendance[std] || '';
           const leaveObj = leavesToday.find(l => l.student === std);
@@ -1794,22 +1815,22 @@
 
           if (isLateLeave && !hasAttended) {
             chipClass = 'bg-amber-100/90 border-amber-300 text-amber-900 font-medium shadow-sm hover:bg-amber-200';
-            stateBadge = `<span class="text-xs bg-amber-200 text-amber-800 px-1.5 rounded mt-0.5 truncate max-w-full font-medium">晚到(${leaveObj.reason})</span>`;
+            stateBadge = `<span class="text-[10px] sm:text-xs bg-amber-200 text-amber-800 px-1 rounded mt-0.5 truncate max-w-full font-medium">晚到(${leaveObj.reason})</span>`;
           } else if (isLeave && !isLateLeave) {
             chipClass = 'bg-rose-50 border-rose-200 text-rose-600 opacity-80';
-            stateBadge = `<span class="text-xs bg-rose-200 text-rose-800 px-1.5 rounded mt-0.5 truncate max-w-full font-medium">${leaveObj.reason}</span>`;
+            stateBadge = `<span class="text-[10px] sm:text-xs bg-rose-200 text-rose-800 px-1 rounded mt-0.5 truncate max-w-full font-medium">${leaveObj.reason}</span>`;
           }
 
           if (hasAttended) {
             chipClass = 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-md font-semibold hover:bg-emerald-100';
-            stateBadge = `<span class="text-xs text-emerald-700 font-mono font-bold mt-0.5 flex items-center gap-1"><i class="fa-regular fa-clock text-[10px]"></i>${timeStr}</span>`;
+            stateBadge = `<span class="text-[10px] sm:text-xs text-emerald-700 font-mono font-bold mt-0.5 flex items-center gap-0.5 sm:gap-1"><i class="fa-regular fa-clock text-[10px]"></i>${timeStr}</span>`;
           }
 
           return `
-            <div style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: translate(-50%, -50%); z-index: 20;" class="w-[115px] sm:w-[130px] min-h-[52px] sm:min-h-[58px]">
+            <div style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: translate(-50%, -50%); z-index: 20;" class="w-[105px] sm:w-[130px] min-h-[48px] sm:min-h-[58px]">
               <button onclick="toggleAttendance('${std}', '${group.name}', '${curDate}')" 
-                      class="w-full h-full p-1.5 sm:p-2 rounded-2xl border ${chipClass} transition-all flex flex-col items-center justify-center shadow-md hover:shadow-lg active:scale-95 overflow-hidden cursor-pointer">
-                <div class="flex items-center gap-1 font-bold text-sm sm:text-base truncate max-w-full">
+                      class="w-full h-full p-1 sm:p-2 rounded-2xl border ${chipClass} transition-all flex flex-col items-center justify-center shadow-md hover:shadow-lg active:scale-95 overflow-hidden cursor-pointer">
+                <div class="flex items-center gap-1 font-bold text-xs sm:text-base truncate max-w-full">
                   ${hasAttended ? '<i class="fa-solid fa-circle-check text-emerald-500 text-xs sm:text-sm"></i>' : ''}
                   ${isLateLeave && !hasAttended ? '<i class="fa-solid fa-clock text-amber-600"></i>' : ''}
                   ${isLeave && !isLateLeave ? '<i class="fa-solid fa-user-minus text-rose-400"></i>' : ''}
@@ -1835,8 +1856,8 @@
             <div class="hexagon-container">
               <div class="hexagon ${isCompleted ? 'hexagon-completed' : ''}"></div>
               <div class="relative z-10 text-white text-center font-bold px-2 pointer-events-none">
-                <span class="block text-sm font-fun">${group.name}</span>
-                ${isCompleted ? '<span class="text-xs bg-emerald-700/80 text-emerald-100 px-1.5 py-0.5 rounded-full mt-1 inline-block animate-pulse">🎉 全組到齊!</span>' : '<span class="text-xs opacity-80">討論桌</span>'}
+                <span class="block text-xs sm:text-sm font-fun">${group.name}</span>
+                ${isCompleted ? '<span class="text-[10px] sm:text-xs bg-emerald-700/80 text-emerald-100 px-1.5 py-0.5 rounded-full mt-1 inline-block animate-pulse">🎉 全組到齊!</span>' : '<span class="text-[10px] sm:text-xs opacity-80">討論桌</span>'}
               </div>
             </div>
 
@@ -2176,7 +2197,7 @@
         if (parts.length < 2) parts = line.split(':');
         if (parts.length >= 2) {
           const gName = parts[0].trim();
-          const stdList = parts[1].split(/[,、，]/).map(s => s.trim()).filter(s => s !== '');
+          const stdList = parts[1].split(/[,、，]/).map(s => s.trim()).filter(s => s);
           if (gName && stdList.length > 0) {
             parsedGroups.push({ name: gName, students: stdList });
           }
@@ -2184,23 +2205,18 @@
       });
 
       if (parsedGroups.length === 0) {
-        showToast('請依正確格式輸入學生名單 (例: 第一組：小明、小華)', 'error');
+        showToast('請正確輸入組別與學生名單，格式例如「第一組：小明、小華」', 'error');
         return;
       }
 
-      const existingData = window.appState.savedClassrooms[cid] || {};
-      const newClassObj = {
+      const existingClass = (window.appState.savedClassrooms && window.appState.savedClassrooms[cid]) || {};
+      const newClassData = {
         classId: cid,
         description: desc,
-        sheetUrl: document.getElementById('cfgSheetUrl').value.trim() || existingData.sheetUrl || '',
-        groups: parsedGroups,
-        announcements: existingData.announcements || {},
-        leaves: existingData.leaves || [],
-        attendance: existingData.attendance || {},
-        completedGroups: existingData.completedGroups || {},
-        firstPlaceCounts: existingData.firstPlaceCounts || {},
-        firstPlaceHistory: existingData.firstPlaceHistory || {},
-        tardyRulesList: existingData.tardyRulesList || [
+        sheetUrl: document.getElementById('cfgSheetUrl')?.value.trim() || existingClass.sheetUrl || '',
+        firstPlaceCounts: existingClass.firstPlaceCounts || {},
+        firstPlaceHistory: existingClass.firstPlaceHistory || {},
+        tardyRulesList: existingClass.tardyRulesList || [
           {
             id: 'rule_default_1',
             targetGroup: 'ALL',
@@ -2209,66 +2225,94 @@
             label: '預設晨間點名遲到門檻'
           }
         ],
-        tardyLogs: existingData.tardyLogs || []
+        tardyLogs: existingClass.tardyLogs || [],
+        groups: parsedGroups,
+        announcements: existingClass.announcements || {},
+        leaves: existingClass.leaves || [],
+        attendance: existingClass.attendance || {},
+        completedGroups: existingClass.completedGroups || {}
       };
 
-      window.appState.savedClassrooms[cid] = newClassObj;
       window.appState.currentClassId = cid;
-      window.appState.classData = newClassObj;
+      window.appState.classData = newClassData;
+      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
+      window.appState.savedClassrooms[cid] = newClassData;
 
-      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(cid);
+      if (window.setupClassroomRealtimeSync) {
+        window.setupClassroomRealtimeSync(cid);
+      }
 
-      showToast(`🎉 成功儲存教室設定 [${cid}]`, 'success');
-      toggleNewClassroomForm();
+      if (window.saveClassroomToFirestore) {
+        window.saveClassroomToFirestore();
+      }
+
+      showToast(`✅ 已成功儲存教室 [${cid}] 設定！`, 'success');
       renderActiveView();
     }
 
     function renderClassroomList() {
       const container = document.getElementById('classroomListContainer');
       if (!container) return;
-
       const savedMap = window.appState.savedClassrooms || {};
       const keys = Object.keys(savedMap);
 
       if (keys.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚無建立的教室</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚無已儲存之教室</p>`;
         return;
       }
 
       container.innerHTML = keys.map(k => {
         const item = savedMap[k];
         const isActive = (k === window.appState.currentClassId);
-        const bgStyle = isActive ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
-
         return `
-          <div onclick="selectClassroom('${k}')" class="${bgStyle} border rounded-xl p-2 cursor-pointer transition-all flex items-center justify-between text-xs">
+          <div onclick="selectClassroomFromList('${k}')" class="p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${isActive ? 'bg-purple-100 text-purple-900 font-bold border border-purple-300' : 'bg-slate-50 hover:bg-slate-100 text-slate-700'}">
             <div>
-              <span class="font-mono">${k}</span>
-              <span class="text-xs opacity-70 ml-1">(${item.description || '無描述'})</span>
+              <span class="font-mono font-bold">${k}</span>
+              <span class="text-xs text-slate-500 ml-1">(${item.description || '無備註'})</span>
             </div>
-            ${isActive ? '<span class="text-xs bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">目前使用</span>' : ''}
+            <button onclick="event.stopPropagation(); deleteClassroom('${k}')" class="text-slate-400 hover:text-rose-600 p-1" title="刪除教室">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
           </div>
         `;
       }).join('');
     }
 
-    function selectClassroom(cid) {
-      if (window.appState.savedClassrooms[cid]) {
-        window.appState.currentClassId = cid;
-        window.appState.classData = window.appState.savedClassrooms[cid];
+    function selectClassroomFromList(classId) {
+      if (!window.appState.savedClassrooms[classId]) return;
+      window.appState.currentClassId = classId;
+      window.appState.classData = window.appState.savedClassrooms[classId];
 
-        const cfgId = document.getElementById('cfgClassId');
-        if (cfgId) cfgId.value = cid;
+      const cfgId = document.getElementById('cfgClassId');
+      if (cfgId) {
+        cfgId.value = classId;
         onClassIdInputChange();
+      }
 
-        if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(cid);
+      if (window.setupClassroomRealtimeSync) {
+        window.setupClassroomRealtimeSync(classId);
+      }
 
-        showToast(`已切換至教室 [${cid}]`, 'info');
+      showToast(`已切換至教室 [${classId}]`, 'info');
+      renderActiveView();
+    }
+
+    function deleteClassroom(classId) {
+      if (confirm(`確定要刪除教室 [${classId}] 嗎？`)) {
+        delete window.appState.savedClassrooms[classId];
+        if (window.appState.currentClassId === classId) {
+          const remainingKeys = Object.keys(window.appState.savedClassrooms);
+          window.appState.currentClassId = remainingKeys.length > 0 ? remainingKeys[0] : '';
+          window.appState.classData = window.appState.currentClassId ? window.appState.savedClassrooms[window.appState.currentClassId] : {
+            classId: '', description: '', sheetUrl: '', firstPlaceCounts: {}, firstPlaceHistory: {},
+            tardyRulesList: [], tardyLogs: [], groups: [], announcements: {}, leaves: [], attendance: {}, completedGroups: {}
+          };
+        }
+        if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+        showToast(`已刪除教室 [${classId}]`, 'info');
         renderActiveView();
       }
     }
   </script>
-
 </body>
 </html>

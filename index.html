@@ -562,7 +562,8 @@
         <p class="text-xs text-slate-500 mt-1">請輸入教師管理登入密碼</p>
       </div>
       
-      <input type="password" id="teacherAuthPassword" placeholder="請輸入密碼" value="" autocomplete="new-password" class="w-full text-center text-sm p-3 border border-slate-200 rounded-xl mb-4 focus:ring-2 focus:ring-emerald-400 focus:outline-none">
+      <!-- 指令2修正：加入 onkeydown 按下 Enter 鍵觸發驗證登入功能 -->
+      <input type="password" id="teacherAuthPassword" placeholder="請輸入密碼" value="" autocomplete="new-password" onkeydown="if(event.key==='Enter') verifyTeacherPassword()" class="w-full text-center text-sm p-3 border border-slate-200 rounded-xl mb-4 focus:ring-2 focus:ring-emerald-400 focus:outline-none">
       
       <div class="flex gap-2">
         <button onclick="closeModal('modalTeacherAuth')" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs py-2.5 rounded-xl font-medium transition-colors">取消</button>
@@ -825,7 +826,7 @@
     </div>
   </div>
 
-  <!-- 同網域/同裝置多分頁廣播通道 (Requirement 2) -->
+  <!-- 同網域/同裝置多分頁廣播通道 -->
   <script>
     const localSyncChannel = new BroadcastChannel('erchong_attendance_local_channel');
     
@@ -856,7 +857,7 @@
     });
   </script>
 
-  <!-- Firebase SDK Modules & Cross-Device/Cross-Domain Sync (Requirement 1 & 2) -->
+  <!-- Firebase SDK Modules & Cross-Device/Cross-Domain Sync -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -947,7 +948,6 @@
       } catch(e) {}
     }
 
-    // 跨裝置、跨網域實時同步指定教室資料 (Requirement 1 & 2)
     function setupClassroomRealtimeSync(classId) {
       if (!classId) return;
       const { db, appId } = window.appState;
@@ -1018,7 +1018,6 @@
         localStorage.setItem('erchong_attendance_saved_classrooms', JSON.stringify(savedClassrooms));
       } catch(e) {}
 
-      // 本地多分頁廣播 (Requirement 2)
       localSyncChannel.postMessage({
         type: 'CLASSROOM_DATA_UPDATED',
         classId: currentClassId,
@@ -1027,7 +1026,6 @@
 
       if (!db) return;
 
-      // 跨裝置與跨網域實時同步寫入 (Requirement 1)
       try {
         if (teacherPassword) {
           const safePasswordKey = btoa(encodeURIComponent(teacherPassword)).replace(/[/+=]/g, '_');
@@ -2174,122 +2172,164 @@
       const parsedGroups = [];
       const lines = rawStudents.split('\n');
       lines.forEach(line => {
-        if (line.includes(':') || line.includes('：')) {
-          const delimiter = line.includes('：') ? '：' : ':';
-          const [gName, stds] = line.split(delimiter);
-          const stdList = stds.split(/[,，、]/).map(s => s.trim()).filter(s => s.length > 0);
-          parsedGroups.push({ name: gName.trim(), students: stdList });
+        if (!line.trim()) return;
+        let parts = line.split('：');
+        if (parts.length < 2) parts = line.split(':');
+        if (parts.length >= 2) {
+          const gName = parts[0].trim();
+          const stds = parts[1].split(/[,、]/).map(s => s.trim()).filter(Boolean);
+          if (gName && stds.length > 0) {
+            parsedGroups.push({ name: gName, students: stds });
+          }
         }
       });
 
-      if (parsedGroups.length === 0 && rawStudents.length > 0) {
-        const stdList = rawStudents.split(/[,，、]/).map(s => s.trim()).filter(s => s.length > 0);
-        parsedGroups.push({ name: '第一組', students: stdList });
-      }
+      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
 
-      window.appState.currentClassId = cid;
-      
-      const existingData = window.appState.savedClassrooms ? (window.appState.savedClassrooms[cid] || {}) : {};
-
-      const newClassData = {
+      const existingData = window.appState.savedClassrooms[cid] || {
         classId: cid,
         description: desc,
-        sheetUrl: existingData.sheetUrl || '',
-        firstPlaceCounts: existingData.firstPlaceCounts || {},
-        firstPlaceHistory: existingData.firstPlaceHistory || {},
-        tardyRulesList: existingData.tardyRulesList || [],
-        tardyLogs: existingData.tardyLogs || [],
+        sheetUrl: document.getElementById('cfgSheetUrl')?.value.trim() || '',
+        firstPlaceCounts: {},
+        firstPlaceHistory: {},
+        tardyRulesList: [
+          {
+            id: 'rule_default_1',
+            targetGroup: 'ALL',
+            days: [1, 2, 3, 4, 5],
+            time: '08:15:00',
+            label: '預設晨間點名遲到門檻'
+          }
+        ],
+        tardyLogs: [],
         groups: parsedGroups,
-        announcements: existingData.announcements || {},
-        leaves: existingData.leaves || [],
-        attendance: existingData.attendance || {},
-        completedGroups: existingData.completedGroups || {}
+        announcements: {},
+        leaves: [],
+        attendance: {},
+        completedGroups: {}
       };
 
-      window.appState.classData = newClassData;
-      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
-      window.appState.savedClassrooms[cid] = newClassData;
-
-      if (window.setupClassroomRealtimeSync) {
-        window.setupClassroomRealtimeSync(cid);
+      existingData.description = desc;
+      existingData.groups = parsedGroups;
+      if (document.getElementById('cfgSheetUrl')?.value) {
+        existingData.sheetUrl = document.getElementById('cfgSheetUrl').value.trim();
       }
 
+      window.appState.savedClassrooms[cid] = existingData;
+      window.appState.currentClassId = cid;
+      window.appState.classData = existingData;
+
       if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast(`✅ 教室 ${cid} 設定已成功儲存！`, 'success');
+      if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(cid);
+
+      showToast(`✅ 已成功儲存教室 [${cid}] 設定！`, 'success');
       renderActiveView();
     }
 
+    /* 指令1修正：渲染已建立教室列表並綁定點擊自動帶入資料事件 */
     function renderClassroomList() {
       const container = document.getElementById('classroomListContainer');
       if (!container) return;
-
       const savedMap = window.appState.savedClassrooms || {};
       const keys = Object.keys(savedMap);
 
       if (keys.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 p-3 text-center">目前尚無已建立的教室資料</p>`;
+        container.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">尚無已建立教室</p>';
         return;
       }
 
       container.innerHTML = keys.map(k => {
         const item = savedMap[k];
-        const isCurrent = k === window.appState.currentClassId;
+        const isCurrent = (k === window.appState.currentClassId);
         return `
-          <div onclick="switchClassroom('${k}')" class="p-2.5 rounded-xl ${isCurrent ? 'bg-purple-100 border-purple-300 font-bold ring-1 ring-purple-400' : 'bg-purple-50/70 hover:bg-purple-100 border-purple-200'} border text-xs text-purple-800 cursor-pointer flex items-center justify-between transition-colors shadow-sm group">
-            <div class="flex items-center gap-2 truncate">
-              <span class="font-bold font-mono text-sm">${k}</span>
-              <span class="text-xs text-purple-600 truncate max-w-[100px]">${item.description || '無備註'}</span>
+          <div onclick="selectClassroomFromList('${k}')" class="p-2.5 rounded-xl border ${isCurrent ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-purple-50/50 hover:border-purple-200'} cursor-pointer transition-all flex items-center justify-between text-xs">
+            <div class="truncate mr-2">
+              <span class="font-mono uppercase font-bold text-slate-800">${k}</span>
+              <span class="text-slate-500 font-normal ml-1">(${item.description || '無說明'})</span>
             </div>
-            <button onclick="deleteClassroom('${k}', event)" class="text-slate-400 hover:text-rose-600 hover:bg-rose-100 p-1.5 rounded-lg transition-colors text-xs shrink-0" title="刪除教室 [${k}] 所有資料">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
+            <div class="flex items-center gap-1 shrink-0">
+              ${isCurrent ? '<span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-bold">當前</span>' : ''}
+              <button onclick="event.stopPropagation(); deleteClassroomFromList('${k}')" class="text-slate-400 hover:text-rose-600 p-1 transition-colors" title="刪除教室">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
           </div>
         `;
       }).join('');
     }
 
-    function deleteClassroom(cid, event) {
-      if (event) event.stopPropagation();
+    /* 指令1修正：點擊已建立教室列表項目時，自動載入曾輸入過的資料至設定欄位 */
+    function selectClassroomFromList(classId) {
+      const savedClass = window.appState.savedClassrooms ? window.appState.savedClassrooms[classId] : null;
+      if (!savedClass) return;
 
-      if (!confirm(`⚠️ 確定要刪除教室【${cid}】的所有資料嗎？`)) return;
+      window.appState.currentClassId = classId;
+      window.appState.classData = savedClass;
 
-      if (window.appState.savedClassrooms) {
-        delete window.appState.savedClassrooms[cid];
+      // 確保設定表單為展開狀態
+      const form = document.getElementById('classroomForm');
+      if (form && form.classList.contains('hidden')) {
+        form.classList.remove('hidden');
       }
 
-      if (window.appState.currentClassId === cid) {
-        window.appState.currentClassId = '';
-        window.appState.classData = {
-          classId: '',
-          description: '',
-          sheetUrl: '',
-          firstPlaceCounts: {},
-          firstPlaceHistory: {},
-          tardyRulesList: [],
-          tardyLogs: [],
-          groups: [],
-          announcements: {},
-          leaves: [],
-          attendance: {},
-          completedGroups: {}
-        };
+      // 自動帶入資料至對應欄位
+      document.getElementById('cfgClassId').value = classId;
+      document.getElementById('cfgClassDesc').value = savedClass.description || '';
+      
+      if (savedClass.groups && Array.isArray(savedClass.groups)) {
+        document.getElementById('cfgClassStudents').value = savedClass.groups.map(g => `${g.name}：${g.students.join('、')}`).join('\n');
+      } else {
+        document.getElementById('cfgClassStudents').value = '';
       }
 
-      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast(`🗑️ 已刪除教室【${cid}】`, 'info');
+      const sheetInput = document.getElementById('cfgSheetUrl');
+      if (sheetInput) {
+        sheetInput.value = savedClass.sheetUrl || '';
+      }
+
+      if (window.setupClassroomRealtimeSync) {
+        window.setupClassroomRealtimeSync(classId);
+      }
+      if (window.saveClassroomToFirestore) {
+        window.saveClassroomToFirestore();
+      }
+
+      showToast(`已自動將教室 [${classId}] 資料載入至編輯欄位`, 'success');
       renderActiveView();
     }
 
-    function switchClassroom(cid) {
-      if (window.appState.savedClassrooms && window.appState.savedClassrooms[cid]) {
-        window.appState.currentClassId = cid;
-        window.appState.classData = window.appState.savedClassrooms[cid];
+    function deleteClassroomFromList(classId) {
+      if (!confirm(`確定要刪除教室 [${classId}] 嗎？`)) return;
+      
+      if (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) {
+        delete window.appState.savedClassrooms[classId];
         
-        if (window.setupClassroomRealtimeSync) {
-          window.setupClassroomRealtimeSync(cid);
+        if (window.appState.currentClassId === classId) {
+          const remainingKeys = Object.keys(window.appState.savedClassrooms);
+          if (remainingKeys.length > 0) {
+            window.appState.currentClassId = remainingKeys[0];
+            window.appState.classData = window.appState.savedClassrooms[remainingKeys[0]];
+          } else {
+            window.appState.currentClassId = '';
+            window.appState.classData = {
+              classId: '',
+              description: '',
+              sheetUrl: '',
+              firstPlaceCounts: {},
+              firstPlaceHistory: {},
+              tardyRulesList: [],
+              tardyLogs: [],
+              groups: [],
+              announcements: {},
+              leaves: [],
+              attendance: {},
+              completedGroups: {}
+            };
+          }
         }
 
-        showToast(`已切換至教室【${cid}】`, 'success');
+        if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+        showToast(`已刪除教室 [${classId}]`, 'info');
         renderActiveView();
       }
     }

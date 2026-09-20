@@ -259,7 +259,7 @@
       <div class="text-center max-w-2xl mb-12">
         <span class="bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">Welcome</span>
         <h2 class="text-3xl sm:text-4xl font-fun font-bold text-slate-800 mt-3 mb-4">歡迎來到 資優班課程點名大廳</h2>
-        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">請選擇您的存取身分</p>
+        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">請選擇您的使用身份</p>
       </div>
 
       <!-- Main Action Cards -->
@@ -280,7 +280,7 @@
           <div class="w-16 h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform shadow-sm">
             🎒
           </div>
-          <h3 class="font-bold text-lg text-slate-800 mb-2">進入課程教室</h3>
+          <h3 class="font-bold text-lg text-slate-800 mb-2">進入課堂教室</h3>
           <span class="mt-6 text-xs font-semibold text-sky-600 group-hover:underline flex items-center gap-1">
             選擇組別點名 <i class="fa-solid fa-arrow-right"></i>
           </span>
@@ -408,11 +408,11 @@
           <div id="classroomForm" class="space-y-3 bg-slate-50 p-3 rounded-xl text-xs">
             <div>
               <label class="block font-medium text-slate-600 mb-1">教室編號 *</label>
-              <input type="text" id="cfgClassId" oninput="onClassIdInputChange()" placeholder="例：ER101" class="w-full p-2 border rounded-lg bg-white uppercase font-mono">
+              <input type="text" id="cfgClassId" oninput="onClassIdInputChange()" placeholder="數字/英文/英+數皆可" class="w-full p-2 border rounded-lg bg-white uppercase font-mono">
             </div>
             <div>
               <label class="block font-medium text-slate-600 mb-1">說明 / 課程名稱</label>
-              <input type="text" id="cfgClassDesc" placeholder="例：四年級數學資優班" class="w-full p-2 border rounded-lg bg-white">
+              <input type="text" id="cfgClassDesc" placeholder="例：領導課" class="w-full p-2 border rounded-lg bg-white">
             </div>
             <div>
               <label class="block font-medium text-slate-600 mb-1">組別與學生名單</label>
@@ -465,7 +465,6 @@
             <span class="text-base font-bold text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-qrcode text-emerald-600 text-lg"></i> 網頁 QR Code
             </span>
-            <span class="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-semibold">遠距離清晰掃碼</span>
           </div>
           
           <div class="bg-white p-3.5 rounded-2xl shadow-inner border border-slate-200 mb-4">
@@ -473,7 +472,7 @@
           </div>
           
           <p class="text-xs text-slate-600 leading-relaxed font-medium">
-            使用手機相機掃描上方 QR Code，即可快速連至本網頁初始畫面開始點名。
+            掃描上方 QR Code，即可進入網頁開始點名。
           </p>
         </div>
       </div>
@@ -692,7 +691,7 @@
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm">📊</div>
           <div>
-            <h3 class="font-bold text-sm text-slate-800">查詢我的紅格子 (唯讀檢視)</h3>
+            <h3 class="font-bold text-sm text-slate-800">查詢我的紅格子 （檢視模式）</h3>
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs text-slate-500">每 30 秒系統自動重新整理同步內容</span>
               <span id="redGridCountdown" class="bg-amber-100 text-amber-800 font-mono text-xs px-2 py-0.5 rounded-full font-bold">30s</span>
@@ -702,7 +701,7 @@
 
         <!-- 教室編號查詢輸入框 -->
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <input type="text" id="redGridInputClassId" placeholder="請輸入教室編號 (例: ER101)" onkeydown="if(event.key==='Enter') queryRedGridByClassId()" class="w-full sm:w-48 text-xs p-2 border border-slate-300 rounded-xl font-mono uppercase bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
+          <input type="text" id="redGridInputClassId" placeholder="請輸入教室編號" onkeydown="if(event.key==='Enter') queryRedGridByClassId()" class="w-full sm:w-48 text-xs p-2 border border-slate-300 rounded-xl font-mono uppercase bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
           <button onclick="queryRedGridByClassId()" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-3 py-2 rounded-xl font-bold shadow-sm transition-colors shrink-0 flex items-center gap-1">
             <i class="fa-solid fa-magnifying-glass"></i> 查詢
           </button>
@@ -809,7 +808,7 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="font-bold text-slate-800 flex items-center gap-1">
-              <i class="fa-solid fa-clipboard-list text-rose-500"></i> 學生遲到紀錄明細 (自動觸發登錄)
+              <i class="fa-solid fa-clipboard-list text-rose-500"></i> 學生遲到紀錄明細 (自動儲存紀錄)
             </label>
             <button onclick="clearTardyLogs()" class="text-xs text-rose-500 hover:underline">清空紀錄</button>
           </div>

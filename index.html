@@ -486,7 +486,7 @@
       <!-- Left Column (4 cols in lg) -->
       <div class="lg:col-span-4 space-y-6">
         
-        <!-- Announcements Card -->
+        <!-- Announcements Card (指令 2 修正：動態自動調整高度以完整顯示內容) -->
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80">
           <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
@@ -494,7 +494,7 @@
             </h3>
             <input type="date" id="studentAnnounceDate" onchange="loadStudentAnnouncement()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50">
           </div>
-          <div id="studentAnnounceContent" class="text-xs text-slate-700 whitespace-pre-line leading-relaxed min-h-[100px] bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <div id="studentAnnounceContent" class="text-xs sm:text-sm text-slate-700 whitespace-pre-wrap break-words leading-relaxed min-h-[100px] h-auto bg-slate-50 p-3.5 rounded-xl border border-slate-100 overflow-visible">
             目前無公告訊息
           </div>
         </div>
@@ -562,7 +562,6 @@
         <p class="text-xs text-slate-500 mt-1">請輸入教師管理登入密碼</p>
       </div>
       
-      <!-- 指令2修正：加入 onkeydown 按下 Enter 鍵觸發驗證登入功能 -->
       <input type="password" id="teacherAuthPassword" placeholder="請輸入密碼" value="" autocomplete="new-password" onkeydown="if(event.key==='Enter') verifyTeacherPassword()" class="w-full text-center text-sm p-3 border border-slate-200 rounded-xl mb-4 focus:ring-2 focus:ring-emerald-400 focus:outline-none">
       
       <div class="flex gap-2">
@@ -1503,7 +1502,7 @@
 
       const sDisplay = document.getElementById('studentAnnounceContent');
       if (sDisplay) {
-        sDisplay.innerText = annMap[sDate] || '今日無公告事項';
+        sDisplay.innerText = annMap[sDate] || '目前無公告訊息';
       }
     }
 
@@ -1782,6 +1781,7 @@
         const isCompleted = completedList.includes(group.name);
         const totalN = group.students.length;
 
+        /* 指令 1 修正：點擊姓名條保留姓名並正確顯示點擊時間 (時：分：秒) */
         const studentCardsHtml = group.students.map((std, idx) => {
           const pos = calculateStudentCircularPosition(idx, totalN, 39);
           const hasAttended = !!attendance[std];
@@ -1803,15 +1803,15 @@
 
           if (hasAttended) {
             chipClass = 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-md font-semibold hover:bg-emerald-100';
-            stateBadge = `<span class="text-xs text-emerald-600 font-mono font-semibold mt-0.5">${timeStr} 到齊</span>`;
+            stateBadge = `<span class="text-xs text-emerald-700 font-mono font-bold mt-0.5 flex items-center gap-1"><i class="fa-regular fa-clock text-[10px]"></i>${timeStr}</span>`;
           }
 
           return `
-            <div style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: translate(-50%, -50%); z-index: 20;" class="w-[110px] sm:w-[125px] h-[50px] sm:h-[56px]">
+            <div style="position: absolute; left: ${pos.left}; top: ${pos.top}; transform: translate(-50%, -50%); z-index: 20;" class="w-[115px] sm:w-[130px] min-h-[52px] sm:min-h-[58px]">
               <button onclick="toggleAttendance('${std}', '${group.name}', '${curDate}')" 
                       class="w-full h-full p-1.5 sm:p-2 rounded-2xl border ${chipClass} transition-all flex flex-col items-center justify-center shadow-md hover:shadow-lg active:scale-95 overflow-hidden cursor-pointer">
                 <div class="flex items-center gap-1 font-bold text-sm sm:text-base truncate max-w-full">
-                  ${hasAttended ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>' : ''}
+                  ${hasAttended ? '<i class="fa-solid fa-circle-check text-emerald-500 text-xs sm:text-sm"></i>' : ''}
                   ${isLateLeave && !hasAttended ? '<i class="fa-solid fa-clock text-amber-600"></i>' : ''}
                   ${isLeave && !isLateLeave ? '<i class="fa-solid fa-user-minus text-rose-400"></i>' : ''}
                   <span class="truncate">${std}</span>
@@ -2177,22 +2177,31 @@
         if (parts.length < 2) parts = line.split(':');
         if (parts.length >= 2) {
           const gName = parts[0].trim();
-          const stds = parts[1].split(/[,、]/).map(s => s.trim()).filter(Boolean);
-          if (gName && stds.length > 0) {
-            parsedGroups.push({ name: gName, students: stds });
+          const stdList = parts[1].split(/[,、，]/).map(s => s.trim()).filter(s => s !== '');
+          if (gName && stdList.length > 0) {
+            parsedGroups.push({ name: gName, students: stdList });
           }
         }
       });
 
-      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
+      if (parsedGroups.length === 0) {
+        showToast('請依正確格式輸入學生名單 (例: 第一組：小明、小華)', 'error');
+        return;
+      }
 
-      const existingData = window.appState.savedClassrooms[cid] || {
+      const existingData = window.appState.savedClassrooms[cid] || {};
+      const newClassObj = {
         classId: cid,
         description: desc,
-        sheetUrl: document.getElementById('cfgSheetUrl')?.value.trim() || '',
-        firstPlaceCounts: {},
-        firstPlaceHistory: {},
-        tardyRulesList: [
+        sheetUrl: document.getElementById('cfgSheetUrl').value.trim() || existingData.sheetUrl || '',
+        groups: parsedGroups,
+        announcements: existingData.announcements || {},
+        leaves: existingData.leaves || [],
+        attendance: existingData.attendance || {},
+        completedGroups: existingData.completedGroups || {},
+        firstPlaceCounts: existingData.firstPlaceCounts || {},
+        firstPlaceHistory: existingData.firstPlaceHistory || {},
+        tardyRulesList: existingData.tardyRulesList || [
           {
             id: 'rule_default_1',
             targetGroup: 'ALL',
@@ -2201,138 +2210,66 @@
             label: '預設晨間點名遲到門檻'
           }
         ],
-        tardyLogs: [],
-        groups: parsedGroups,
-        announcements: {},
-        leaves: [],
-        attendance: {},
-        completedGroups: {}
+        tardyLogs: existingData.tardyLogs || []
       };
 
-      existingData.description = desc;
-      existingData.groups = parsedGroups;
-      if (document.getElementById('cfgSheetUrl')?.value) {
-        existingData.sheetUrl = document.getElementById('cfgSheetUrl').value.trim();
-      }
-
-      window.appState.savedClassrooms[cid] = existingData;
+      window.appState.savedClassrooms[cid] = newClassObj;
       window.appState.currentClassId = cid;
-      window.appState.classData = existingData;
+      window.appState.classData = newClassObj;
 
       if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
       if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(cid);
 
-      showToast(`✅ 已成功儲存教室 [${cid}] 設定！`, 'success');
+      showToast(`🎉 成功儲存教室設定 [${cid}]`, 'success');
+      toggleNewClassroomForm();
       renderActiveView();
     }
 
-    /* 指令1修正：渲染已建立教室列表並綁定點擊自動帶入資料事件 */
     function renderClassroomList() {
       const container = document.getElementById('classroomListContainer');
       if (!container) return;
+
       const savedMap = window.appState.savedClassrooms || {};
       const keys = Object.keys(savedMap);
 
       if (keys.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">尚無已建立教室</p>';
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚無建立的教室</p>`;
         return;
       }
 
       container.innerHTML = keys.map(k => {
         const item = savedMap[k];
-        const isCurrent = (k === window.appState.currentClassId);
+        const isActive = (k === window.appState.currentClassId);
+        const bgStyle = isActive ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
+
         return `
-          <div onclick="selectClassroomFromList('${k}')" class="p-2.5 rounded-xl border ${isCurrent ? 'bg-purple-50 border-purple-300 text-purple-900 font-bold shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-purple-50/50 hover:border-purple-200'} cursor-pointer transition-all flex items-center justify-between text-xs">
-            <div class="truncate mr-2">
-              <span class="font-mono uppercase font-bold text-slate-800">${k}</span>
-              <span class="text-slate-500 font-normal ml-1">(${item.description || '無說明'})</span>
+          <div onclick="selectClassroom('${k}')" class="${bgStyle} border rounded-xl p-2 cursor-pointer transition-all flex items-center justify-between text-xs">
+            <div>
+              <span class="font-mono">${k}</span>
+              <span class="text-xs opacity-70 ml-1">(${item.description || '無描述'})</span>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
-              ${isCurrent ? '<span class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-bold">當前</span>' : ''}
-              <button onclick="event.stopPropagation(); deleteClassroomFromList('${k}')" class="text-slate-400 hover:text-rose-600 p-1 transition-colors" title="刪除教室">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
-            </div>
+            ${isActive ? '<span class="text-xs bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded">目前使用</span>' : ''}
           </div>
         `;
       }).join('');
     }
 
-    /* 指令1修正：點擊已建立教室列表項目時，自動載入曾輸入過的資料至設定欄位 */
-    function selectClassroomFromList(classId) {
-      const savedClass = window.appState.savedClassrooms ? window.appState.savedClassrooms[classId] : null;
-      if (!savedClass) return;
+    function selectClassroom(cid) {
+      if (window.appState.savedClassrooms[cid]) {
+        window.appState.currentClassId = cid;
+        window.appState.classData = window.appState.savedClassrooms[cid];
 
-      window.appState.currentClassId = classId;
-      window.appState.classData = savedClass;
+        const cfgId = document.getElementById('cfgClassId');
+        if (cfgId) cfgId.value = cid;
+        onClassIdInputChange();
 
-      // 確保設定表單為展開狀態
-      const form = document.getElementById('classroomForm');
-      if (form && form.classList.contains('hidden')) {
-        form.classList.remove('hidden');
-      }
+        if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(cid);
 
-      // 自動帶入資料至對應欄位
-      document.getElementById('cfgClassId').value = classId;
-      document.getElementById('cfgClassDesc').value = savedClass.description || '';
-      
-      if (savedClass.groups && Array.isArray(savedClass.groups)) {
-        document.getElementById('cfgClassStudents').value = savedClass.groups.map(g => `${g.name}：${g.students.join('、')}`).join('\n');
-      } else {
-        document.getElementById('cfgClassStudents').value = '';
-      }
-
-      const sheetInput = document.getElementById('cfgSheetUrl');
-      if (sheetInput) {
-        sheetInput.value = savedClass.sheetUrl || '';
-      }
-
-      if (window.setupClassroomRealtimeSync) {
-        window.setupClassroomRealtimeSync(classId);
-      }
-      if (window.saveClassroomToFirestore) {
-        window.saveClassroomToFirestore();
-      }
-
-      showToast(`已自動將教室 [${classId}] 資料載入至編輯欄位`, 'success');
-      renderActiveView();
-    }
-
-    function deleteClassroomFromList(classId) {
-      if (!confirm(`確定要刪除教室 [${classId}] 嗎？`)) return;
-      
-      if (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) {
-        delete window.appState.savedClassrooms[classId];
-        
-        if (window.appState.currentClassId === classId) {
-          const remainingKeys = Object.keys(window.appState.savedClassrooms);
-          if (remainingKeys.length > 0) {
-            window.appState.currentClassId = remainingKeys[0];
-            window.appState.classData = window.appState.savedClassrooms[remainingKeys[0]];
-          } else {
-            window.appState.currentClassId = '';
-            window.appState.classData = {
-              classId: '',
-              description: '',
-              sheetUrl: '',
-              firstPlaceCounts: {},
-              firstPlaceHistory: {},
-              tardyRulesList: [],
-              tardyLogs: [],
-              groups: [],
-              announcements: {},
-              leaves: [],
-              attendance: {},
-              completedGroups: {}
-            };
-          }
-        }
-
-        if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-        showToast(`已刪除教室 [${classId}]`, 'info');
+        showToast(`已切換至教室 [${cid}]`, 'info');
         renderActiveView();
       }
     }
   </script>
+
 </body>
 </html>

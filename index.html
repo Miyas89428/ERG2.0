@@ -106,7 +106,7 @@
       background-size: 1.2rem;
     }
 
-    /* 請假單專用萬年曆日期欄位 */
+    /* 請假單與匯出視窗專用萬年曆日期欄位 */
     input[type="date"].form-date-input {
       width: 100% !important;
       height: 2.5rem !important;
@@ -125,8 +125,8 @@
     }
 
     input[type="date"].form-date-input:focus {
-      border-color: #fb7185 !important;
-      box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.2) !important;
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2) !important;
     }
 
     input[type="date"].form-date-input::-webkit-datetime-edit,
@@ -162,7 +162,7 @@
       opacity: 1 !important;
     }
 
-    /* 六角形桌位與環形佈局（支援手機/平板/電腦各尺寸自適應） */
+    /* 六角形桌位與環形佈局 */
     .hexagon-container {
       position: absolute;
       left: 50%;
@@ -332,7 +332,8 @@
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-bullhorn text-emerald-500"></i> 重要公告與作業
             </h3>
-            <input type="date" id="teacherAnnounceDate" onchange="loadAnnouncementForDate()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50 text-slate-600 cursor-pointer">
+            <!-- 獨立萬年曆：公告專用 -->
+            <input type="date" id="teacherAnnounceDate" onchange="onTeacherAnnounceDateChange()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50 text-slate-600 cursor-pointer">
           </div>
           <p class="text-xs text-slate-400 mb-2">💡 按 Enter 鍵自動跳至下一列</p>
           <textarea id="teacherAnnounceInput" rows="5" class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-400 focus:outline-none transition-all resize-y" placeholder="1. 請輸入公告或作業..."></textarea>
@@ -347,6 +348,7 @@
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-user-xmark text-rose-500"></i> 請假/晚到名單
             </h3>
+            <!-- 獨立萬年曆：請假名單專用 -->
             <input type="date" id="teacherLeaveFilterDate" onchange="onTeacherLeaveDateChange()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50 text-slate-600 cursor-pointer">
           </div>
 
@@ -378,11 +380,19 @@
               </div>
             </div>
 
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <button onclick="saveAttendanceRecord()" class="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3.5 py-2 rounded-xl font-medium shadow-sm transition-all flex items-center gap-1.5">
+            <!-- 儲存點名紀錄按鈕、匯出點名紀錄按鈕、重置點名按鈕與獨立點名萬年曆 -->
+            <div class="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end flex-wrap">
+              <button onclick="saveAttendanceRecord()" class="bg-sky-500 hover:bg-sky-600 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-all flex items-center gap-1">
                 <i class="fa-solid fa-cloud-arrow-up"></i> 儲存點名紀錄
               </button>
-              <input type="date" id="teacherViewDate" onchange="changeTeacherViewDate()" class="text-xs border border-slate-200 rounded-xl p-2 bg-slate-50 text-slate-700">
+              <button onclick="openExportModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-all flex items-center gap-1" title="匯出指定日期或區間點名紀錄">
+                <i class="fa-solid fa-file-export"></i> 匯出點名紀錄
+              </button>
+              <button onclick="resetAttendanceRecord()" class="bg-rose-500 hover:bg-rose-600 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition-all flex items-center gap-1" title="清除所選萬年曆日期的點名紀錄">
+                <i class="fa-solid fa-rotate-left"></i> 重置點名
+              </button>
+              <!-- 獨立萬年曆：點名紀錄專用 -->
+              <input type="date" id="teacherViewDate" onchange="changeTeacherAttendanceDate()" class="text-xs border border-slate-200 rounded-xl p-2 bg-slate-50 text-slate-700 cursor-pointer">
             </div>
           </div>
 
@@ -474,7 +484,7 @@
 
       </div>
 
-      <!-- 右側隱藏式 QR CODE 欄位 (適合各裝置展開掃碼) -->
+      <!-- 右側隱藏式 QR CODE 欄位 -->
       <div id="teacherQrDrawer" class="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center transition-transform duration-300 translate-x-[calc(100%-3rem)]">
         <button id="qrDrawerToggleBtn" onclick="toggleQrDrawer()" class="bg-emerald-600 hover:bg-emerald-700 text-white w-12 h-36 rounded-l-2xl shadow-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border-l border-t border-b border-white/30 group" title="點擊展開/收合 QR Code">
           <i id="qrDrawerTriangleIcon" class="fa-solid fa-play text-sm transition-transform duration-300 -rotate-180 group-hover:scale-125"></i>
@@ -512,7 +522,8 @@
             <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
               <i class="fa-solid fa-bullhorn text-emerald-500"></i> 重要公告與本週作業
             </h3>
-            <input type="date" id="studentAnnounceDate" onchange="loadStudentAnnouncement()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50">
+            <!-- 學生視角獨立萬年曆 -->
+            <input type="date" id="studentAnnounceDate" onchange="onStudentAnnounceDateChange()" class="text-xs border border-slate-200 rounded-lg p-1 bg-slate-50">
           </div>
           <div id="studentAnnounceContent" class="text-xs sm:text-sm text-slate-700 whitespace-pre-wrap break-words leading-relaxed min-h-[100px] h-auto bg-slate-50 p-3.5 rounded-xl border border-slate-100 overflow-visible">
             目前無公告訊息
@@ -845,6 +856,37 @@
     </div>
   </div>
 
+  <!-- MODAL 6: Export Attendance Modal (新增匯出點名紀錄 Modal) -->
+  <div id="modalExportAttendance" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+      <div class="text-center mb-5">
+        <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-xl mx-auto mb-2 shadow-sm">
+          <i class="fa-solid fa-file-export"></i>
+        </div>
+        <h3 class="font-bold text-lg text-slate-800">匯出點名紀錄</h3>
+        <p class="text-xs text-slate-500 mt-1">請選擇要匯出的單一日期或日期區間</p>
+      </div>
+
+      <div class="space-y-4 mb-6">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">開始日期 *</label>
+          <input type="date" id="exportStartDate" class="form-date-input">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">結束日期 *</label>
+          <input type="date" id="exportEndDate" class="form-date-input">
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="closeModal('modalExportAttendance')" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs py-2.5 rounded-xl font-medium">取消</button>
+        <button onclick="exportAttendanceCSV()" class="w-1/2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2.5 rounded-xl font-medium shadow-sm flex items-center justify-center gap-1">
+          <i class="fa-solid fa-download"></i> 下載 CSV 報表
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 同網域/同裝置多分頁廣播通道 -->
   <script>
     const localSyncChannel = new BroadcastChannel('erchong_attendance_local_channel');
@@ -876,7 +918,7 @@
     });
   </script>
 
-  <!-- Firebase SDK Modules & 跨裝置同步 (手機/平板/電腦) -->
+  <!-- Firebase SDK Modules & 跨裝置同步 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -891,8 +933,12 @@
       currentView: 'home',
       isTeacherAuthenticated: false,
       selectedStudentGroup: '',
-      teacherSelectedDate: getCSTDateString(),
-      studentSelectedDate: getCSTDateString(),
+      /* 獨立萬年曆狀態變數 */
+      teacherAnnounceSelectedDate: getCSTDateString(),
+      studentAnnounceSelectedDate: getCSTDateString(),
+      teacherLeaveSelectedDate: getCSTDateString(),
+      teacherAttendanceSelectedDate: getCSTDateString(),
+      studentAttendanceSelectedDate: getCSTDateString(),
       savedClassrooms: {},
       classData: {
         classId: '',
@@ -1436,22 +1482,26 @@
       }
     }
 
+    /* 渲染目前畫面的獨立變數初始化 */
     function renderActiveView() {
       const dateToday = getCSTDateString();
-      if (!window.appState.teacherSelectedDate) window.appState.teacherSelectedDate = dateToday;
-      if (!window.appState.studentSelectedDate) window.appState.studentSelectedDate = dateToday;
+      if (!window.appState.teacherAnnounceSelectedDate) window.appState.teacherAnnounceSelectedDate = dateToday;
+      if (!window.appState.studentAnnounceSelectedDate) window.appState.studentAnnounceSelectedDate = dateToday;
+      if (!window.appState.teacherLeaveSelectedDate) window.appState.teacherLeaveSelectedDate = dateToday;
+      if (!window.appState.teacherAttendanceSelectedDate) window.appState.teacherAttendanceSelectedDate = dateToday;
+      if (!window.appState.studentAttendanceSelectedDate) window.appState.studentAttendanceSelectedDate = dateToday;
 
       const tAnnDate = document.getElementById('teacherAnnounceDate');
-      if (tAnnDate) tAnnDate.value = window.appState.teacherSelectedDate;
+      if (tAnnDate) tAnnDate.value = window.appState.teacherAnnounceSelectedDate;
 
       const tLeaveDate = document.getElementById('teacherLeaveFilterDate');
-      if (tLeaveDate) tLeaveDate.value = window.appState.teacherSelectedDate;
+      if (tLeaveDate) tLeaveDate.value = window.appState.teacherLeaveSelectedDate;
 
       const tViewDate = document.getElementById('teacherViewDate');
-      if (tViewDate) tViewDate.value = window.appState.teacherSelectedDate;
+      if (tViewDate) tViewDate.value = window.appState.teacherAttendanceSelectedDate;
 
       const sAnnDate = document.getElementById('studentAnnounceDate');
-      if (sAnnDate) sAnnDate.value = window.appState.studentSelectedDate;
+      if (sAnnDate) sAnnDate.value = window.appState.studentAnnounceSelectedDate;
 
       const sheetInput = document.getElementById('cfgSheetUrl');
       if (sheetInput) {
@@ -1486,8 +1536,9 @@
       }
     });
 
+    /* 指令修正 2：公告萬年曆獨立處理 */
     function saveAnnouncement() {
-      const dateKey = document.getElementById('teacherAnnounceDate').value || getCSTDateString();
+      const dateKey = document.getElementById('teacherAnnounceDate')?.value || window.appState.teacherAnnounceSelectedDate || getCSTDateString();
       const content = document.getElementById('teacherAnnounceInput').value;
       
       if (!window.appState.classData.announcements) window.appState.classData.announcements = {};
@@ -1498,21 +1549,21 @@
       renderAnnouncements();
     }
 
-    function loadAnnouncementForDate() {
+    function onTeacherAnnounceDateChange() {
       const dateKey = document.getElementById('teacherAnnounceDate').value;
-      window.appState.teacherSelectedDate = dateKey;
+      window.appState.teacherAnnounceSelectedDate = dateKey;
       renderAnnouncements();
     }
 
-    function loadStudentAnnouncement() {
+    function onStudentAnnounceDateChange() {
       const dateKey = document.getElementById('studentAnnounceDate').value;
-      window.appState.studentSelectedDate = dateKey;
+      window.appState.studentAnnounceSelectedDate = dateKey;
       renderAnnouncements();
     }
 
     function renderAnnouncements() {
-      const tDate = document.getElementById('teacherAnnounceDate')?.value || window.appState.teacherSelectedDate || getCSTDateString();
-      const sDate = document.getElementById('studentAnnounceDate')?.value || window.appState.studentSelectedDate || getCSTDateString();
+      const tDate = window.appState.teacherAnnounceSelectedDate || getCSTDateString();
+      const sDate = window.appState.studentAnnounceSelectedDate || getCSTDateString();
       const annMap = window.appState.classData ? (window.appState.classData.announcements || {}) : {};
 
       const tInput = document.getElementById('teacherAnnounceInput');
@@ -1643,22 +1694,18 @@
       });
     }
 
+    /* 指令修正 2：請假名單萬年曆獨立處理 */
     function onTeacherLeaveDateChange() {
       const val = document.getElementById('teacherLeaveFilterDate').value;
       if (val) {
-        window.appState.teacherSelectedDate = val;
+        window.appState.teacherLeaveSelectedDate = val;
       }
       renderLeaveList();
-      renderSeatingMap('teacher');
     }
 
     function renderLeaveList() {
-      const leaveDateElem = document.getElementById('teacherLeaveFilterDate');
-      if (leaveDateElem && leaveDateElem.value) {
-        window.appState.teacherSelectedDate = leaveDateElem.value;
-      }
-      const tDate = window.appState.teacherSelectedDate || getCSTDateString();
-      const sDate = window.appState.studentSelectedDate || getCSTDateString();
+      const tDate = window.appState.teacherLeaveSelectedDate || getCSTDateString();
+      const sDate = window.appState.studentAttendanceSelectedDate || getCSTDateString();
 
       const tContainer = document.getElementById('teacherLeaveContainer');
       const sContainer = document.getElementById('studentLeaveContainer');
@@ -1693,7 +1740,7 @@
 
       if (sContainer) {
         if (sLeaves.length === 0) {
-          sContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">今日全員到齊無請假紀錄</p>`;
+          sContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">(${sDate}) 今日全員到齊無請假紀錄</p>`;
         } else {
           sContainer.innerHTML = sLeaves.map(l => {
             const isLate = (l.type === '晚到');
@@ -1724,13 +1771,22 @@
       };
     }
 
+    /* 指令修正 2：點名座位表萬年曆獨立處理 */
+    function changeTeacherAttendanceDate() {
+      const val = document.getElementById('teacherViewDate').value;
+      if (val) {
+        window.appState.teacherAttendanceSelectedDate = val;
+      }
+      renderSeatingMap('teacher');
+    }
+
     function renderSeatingMap(mode = 'teacher') {
       const isTeacher = (mode === 'teacher');
       const containerId = isTeacher ? 'teacherSeatingContainer' : 'studentSeatingContainer';
       const container = document.getElementById(containerId);
       if (!container) return;
 
-      const curDate = isTeacher ? (window.appState.teacherSelectedDate || getCSTDateString()) : (window.appState.studentSelectedDate || getCSTDateString());
+      const curDate = isTeacher ? (window.appState.teacherAttendanceSelectedDate || getCSTDateString()) : (window.appState.studentAttendanceSelectedDate || getCSTDateString());
       let groups = window.appState.classData ? (window.appState.classData.groups || []) : [];
 
       if (groups.length === 0) {
@@ -1801,7 +1857,6 @@
         const isCompleted = completedList.includes(group.name);
         const totalN = group.students.length;
 
-        /* 點擊姓名條保留姓名並正確顯示點擊時間 (時：分：秒) */
         const studentCardsHtml = group.students.map((std, idx) => {
           const pos = calculateStudentCircularPosition(idx, totalN, 38);
           const hasAttended = !!attendance[std];
@@ -2130,93 +2185,169 @@
       showToast('☁️ 點名紀錄已成功同步儲存！', 'success');
     }
 
-    function changeTeacherViewDate() {
-      const val = document.getElementById('teacherViewDate').value;
-      window.appState.teacherSelectedDate = val;
-      renderActiveView();
-    }
-
-    function toggleNewClassroomForm() {
-      const form = document.getElementById('classroomForm');
-      form.classList.toggle('hidden');
-    }
-
-    function onClassIdInputChange() {
-      const inputId = document.getElementById('cfgClassId').value.trim().toUpperCase();
-      const descInput = document.getElementById('cfgClassDesc');
-      const studentsInput = document.getElementById('cfgClassStudents');
-      const sheetInput = document.getElementById('cfgSheetUrl');
-
-      if (window.appState.currentView === 'teacher') {
-        const activeTextElem = document.getElementById('activeClassText');
-        if (activeTextElem) {
-          activeTextElem.innerText = `教室：${inputId || window.appState.currentClassId || '-'}`;
+    /* 指令修正 1：重置點名功能（清除萬年曆目前選擇日期的紀錄） */
+    function resetAttendanceRecord() {
+      const dateKey = window.appState.teacherAttendanceSelectedDate || getCSTDateString();
+      if (confirm(`⚠️ 確定要重置 [${dateKey}] 的點名紀錄嗎？\n此操作將會清除該日期內的所有到班與全組到齊紀錄！`)) {
+        if (window.appState.classData.attendance) {
+          delete window.appState.classData.attendance[dateKey];
         }
-      }
+        if (window.appState.classData.completedGroups) {
+          delete window.appState.classData.completedGroups[dateKey];
+        }
 
-      if (!inputId) {
-        descInput.value = '';
-        studentsInput.value = '';
-        if (sheetInput) sheetInput.value = '';
+        if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+        showToast(`🗑️ 已成功重置 [${dateKey}] 的點名紀錄`, 'info');
+        renderSeatingMap('teacher');
+        renderSeatingMap('student');
+      }
+    }
+
+    /* 指令修正 1：開啟與執行匯出 CSV 點名紀錄功能 */
+    function openExportModal() {
+      const today = getCSTDateString();
+      const defaultDate = window.appState.teacherAttendanceSelectedDate || today;
+      document.getElementById('exportStartDate').value = defaultDate;
+      document.getElementById('exportEndDate').value = defaultDate;
+      document.getElementById('modalExportAttendance').classList.remove('hidden');
+    }
+
+    function exportAttendanceCSV() {
+      const startDate = document.getElementById('exportStartDate').value;
+      const endDate = document.getElementById('exportEndDate').value;
+
+      if (!startDate || !endDate) {
+        showToast('⚠️ 請選擇正確的起訖日期', 'error');
+        return;
+      }
+      if (startDate > endDate) {
+        showToast('⚠️ 開始日期不可大於結束日期', 'error');
         return;
       }
 
-      const savedClass = window.appState.savedClassrooms ? window.appState.savedClassrooms[inputId] : null;
+      const classData = window.appState.classData;
+      if (!classData || !classData.groups || classData.groups.length === 0) {
+        showToast('⚠️ 目前沒有小組及學生資料可匯出', 'error');
+        return;
+      }
 
-      if (savedClass) {
-        descInput.value = savedClass.description || '';
-        if (sheetInput) sheetInput.value = savedClass.sheetUrl || '';
-        if (savedClass.groups && Array.isArray(savedClass.groups)) {
-          studentsInput.value = savedClass.groups.map(g => `${g.name}：${g.students.join('、')}`).join('\n');
-        } else {
-          studentsInput.value = '';
-        }
-        showToast(`已自動載入舊有教室 [${inputId}] 資料供編輯`, 'info');
-      } else {
-        descInput.value = '';
-        studentsInput.value = '';
-        if (sheetInput) sheetInput.value = '';
+      // UTF-8 BOM 避免 Excel 開啟亂碼
+      let csvContent = "\uFEFF日期,教室編號,組別,學生姓名,點名狀態,簽到時間,請假/晚到事由\n";
+
+      let startObj = new Date(startDate + 'T00:00:00');
+      let endObj = new Date(endDate + 'T00:00:00');
+
+      for (let d = new Date(startObj); d <= endObj; d.setDate(d.getDate() + 1)) {
+        let dateStr = getCSTDateString(d);
+        let attDay = (classData.attendance && classData.attendance[dateStr]) || {};
+        let leavesDay = getLeavesForDate(dateStr);
+
+        classData.groups.forEach(group => {
+          group.students.forEach(std => {
+            let status = "未到班";
+            let time = attDay[std] || "";
+            let leaveObj = leavesDay.find(l => l.student === std);
+            let reason = "";
+
+            if (time) {
+              status = "已到班";
+              if (leaveObj && leaveObj.type === '晚到') {
+                reason = `晚到 (${leaveObj.reason})`;
+              }
+            } else if (leaveObj) {
+              if (leaveObj.type === '晚到') {
+                status = "預計晚到";
+                reason = leaveObj.reason;
+              } else {
+                status = `請假 (${leaveObj.type})`;
+                reason = leaveObj.reason;
+              }
+            }
+
+            csvContent += `"${dateStr}","${window.appState.currentClassId || ''}","${group.name}","${std}","${status}","${time}","${reason}"\n`;
+          });
+        });
+      }
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `點名紀錄_${window.appState.currentClassId || '資優班'}_${startDate}_至_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      closeModal('modalExportAttendance');
+      showToast('📥 點名紀錄已成功匯出為 CSV 報表！', 'success');
+    }
+
+    /* 教室設定相關操作函式 */
+    function toggleNewClassroomForm() {
+      const form = document.getElementById('classroomForm');
+      if (form) {
+        form.classList.toggle('hidden');
+      }
+    }
+
+    function onClassIdInputChange() {
+      const idInput = document.getElementById('cfgClassId');
+      if (idInput) {
+        idInput.value = idInput.value.toUpperCase();
       }
     }
 
     function saveClassroomConfig() {
-      const cid = document.getElementById('cfgClassId').value.trim().toUpperCase();
+      const classId = document.getElementById('cfgClassId').value.trim().toUpperCase();
       const desc = document.getElementById('cfgClassDesc').value.trim();
-      const rawStudents = document.getElementById('cfgClassStudents').value.trim();
+      const studentsRaw = document.getElementById('cfgClassStudents').value.trim();
 
-      if (!cid) {
-        showToast('請輸入教室編號', 'error');
+      if (!classId) {
+        showToast('⚠️ 請輸入教室編號！', 'error');
+        return;
+      }
+      if (!studentsRaw) {
+        showToast('⚠️ 請輸入組別與學生名單！', 'error');
         return;
       }
 
-      const parsedGroups = [];
-      const lines = rawStudents.split('\n');
-      lines.forEach(line => {
-        if (!line.trim()) return;
-        let parts = line.split('：');
-        if (parts.length < 2) parts = line.split(':');
-        if (parts.length >= 2) {
-          const gName = parts[0].trim();
-          const stdList = parts[1].split(/[,、，]/).map(s => s.trim()).filter(s => s);
-          if (gName && stdList.length > 0) {
-            parsedGroups.push({ name: gName, students: stdList });
-          }
+      const groupLines = studentsRaw.split('\n');
+      const groups = [];
+
+      groupLines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        
+        let gName = '';
+        let stds = [];
+
+        if (trimmed.includes('：') || trimmed.includes(':')) {
+          const parts = trimmed.split(/[:：]/);
+          gName = parts[0].trim();
+          const namesStr = parts.slice(1).join(':').trim();
+          stds = namesStr.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
+        } else {
+          gName = `組別${groups.length + 1}`;
+          stds = trimmed.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
+        }
+
+        if (gName && stds.length > 0) {
+          groups.push({ name: gName, students: stds });
         }
       });
 
-      if (parsedGroups.length === 0) {
-        showToast('請正確輸入組別與學生名單，格式例如「第一組：小明、小華」', 'error');
+      if (groups.length === 0) {
+        showToast('⚠️ 格式解析錯誤，請確認輸入格式 (例如：第一組：小明, 小華)', 'error');
         return;
       }
 
-      const existingClass = (window.appState.savedClassrooms && window.appState.savedClassrooms[cid]) || {};
-      const newClassData = {
-        classId: cid,
+      let existingClass = window.appState.savedClassrooms[classId] || {
+        classId,
         description: desc,
-        sheetUrl: document.getElementById('cfgSheetUrl')?.value.trim() || existingClass.sheetUrl || '',
-        firstPlaceCounts: existingClass.firstPlaceCounts || {},
-        firstPlaceHistory: existingClass.firstPlaceHistory || {},
-        tardyRulesList: existingClass.tardyRulesList || [
+        sheetUrl: '',
+        firstPlaceCounts: {},
+        firstPlaceHistory: {},
+        tardyRulesList: [
           {
             id: 'rule_default_1',
             targetGroup: 'ALL',
@@ -2225,91 +2356,98 @@
             label: '預設晨間點名遲到門檻'
           }
         ],
-        tardyLogs: existingClass.tardyLogs || [],
-        groups: parsedGroups,
-        announcements: existingClass.announcements || {},
-        leaves: existingClass.leaves || [],
-        attendance: existingClass.attendance || {},
-        completedGroups: existingClass.completedGroups || {}
+        tardyLogs: [],
+        groups: [],
+        announcements: {},
+        leaves: [],
+        attendance: {},
+        completedGroups: {}
       };
 
-      window.appState.currentClassId = cid;
-      window.appState.classData = newClassData;
-      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
-      window.appState.savedClassrooms[cid] = newClassData;
+      existingClass.description = desc;
+      existingClass.groups = groups;
 
-      if (window.setupClassroomRealtimeSync) {
-        window.setupClassroomRealtimeSync(cid);
-      }
+      window.appState.currentClassId = classId;
+      window.appState.classData = existingClass;
+      window.appState.savedClassrooms[classId] = existingClass;
 
-      if (window.saveClassroomToFirestore) {
-        window.saveClassroomToFirestore();
-      }
+      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+      if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(classId);
 
-      showToast(`✅ 已成功儲存教室 [${cid}] 設定！`, 'success');
+      showToast(`🎉 已成功儲存教室【${classId}】設定！`, 'success');
       renderActiveView();
     }
 
     function renderClassroomList() {
       const container = document.getElementById('classroomListContainer');
       if (!container) return;
+
       const savedMap = window.appState.savedClassrooms || {};
       const keys = Object.keys(savedMap);
 
       if (keys.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚無已儲存之教室</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚無已建立的教室</p>`;
         return;
       }
 
       container.innerHTML = keys.map(k => {
         const item = savedMap[k];
         const isActive = (k === window.appState.currentClassId);
+        const bg = isActive ? 'bg-purple-100/80 border-purple-300 text-purple-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
+
         return `
-          <div onclick="selectClassroomFromList('${k}')" class="p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition-colors ${isActive ? 'bg-purple-100 text-purple-900 font-bold border border-purple-300' : 'bg-slate-50 hover:bg-slate-100 text-slate-700'}">
-            <div>
+          <div class="${bg} border rounded-xl p-2 flex items-center justify-between text-xs transition-colors cursor-pointer" onclick="loadClassroomData('${k}')">
+            <div class="truncate max-w-[170px]">
               <span class="font-mono font-bold">${k}</span>
-              <span class="text-xs text-slate-500 ml-1">(${item.description || '無備註'})</span>
+              <span class="text-slate-500 font-normal ml-1">(${item.description || '無備註'})</span>
             </div>
-            <button onclick="event.stopPropagation(); deleteClassroom('${k}')" class="text-slate-400 hover:text-rose-600 p-1" title="刪除教室">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
+            <div class="flex items-center gap-1">
+              ${isActive ? '<span class="text-[10px] bg-purple-600 text-white px-1.5 py-0.5 rounded">目前選取</span>' : ''}
+              <button onclick="event.stopPropagation(); deleteClassroom('${k}')" class="text-slate-400 hover:text-rose-600 p-1" title="刪除教室">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
           </div>
         `;
       }).join('');
     }
 
-    function selectClassroomFromList(classId) {
-      if (!window.appState.savedClassrooms[classId]) return;
-      window.appState.currentClassId = classId;
-      window.appState.classData = window.appState.savedClassrooms[classId];
+    function loadClassroomData(classId) {
+      if (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) {
+        window.appState.currentClassId = classId;
+        window.appState.classData = window.appState.savedClassrooms[classId];
 
-      const cfgId = document.getElementById('cfgClassId');
-      if (cfgId) {
-        cfgId.value = classId;
-        onClassIdInputChange();
+        document.getElementById('cfgClassId').value = classId;
+        document.getElementById('cfgClassDesc').value = window.appState.classData.description || '';
+        
+        const studentStr = (window.appState.classData.groups || []).map(g => `${g.name}：${g.students.join('、')}`).join('\n');
+        document.getElementById('cfgClassStudents').value = studentStr;
+
+        if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(classId);
+        showToast(`已切換至教室【${classId}】`, 'info');
+        renderActiveView();
       }
-
-      if (window.setupClassroomRealtimeSync) {
-        window.setupClassroomRealtimeSync(classId);
-      }
-
-      showToast(`已切換至教室 [${classId}]`, 'info');
-      renderActiveView();
     }
 
     function deleteClassroom(classId) {
-      if (confirm(`確定要刪除教室 [${classId}] 嗎？`)) {
+      if (confirm(`確定要刪除教室【${classId}】嗎？`)) {
         delete window.appState.savedClassrooms[classId];
         if (window.appState.currentClassId === classId) {
           const remainingKeys = Object.keys(window.appState.savedClassrooms);
-          window.appState.currentClassId = remainingKeys.length > 0 ? remainingKeys[0] : '';
-          window.appState.classData = window.appState.currentClassId ? window.appState.savedClassrooms[window.appState.currentClassId] : {
-            classId: '', description: '', sheetUrl: '', firstPlaceCounts: {}, firstPlaceHistory: {},
-            tardyRulesList: [], tardyLogs: [], groups: [], announcements: {}, leaves: [], attendance: {}, completedGroups: {}
-          };
+          if (remainingKeys.length > 0) {
+            loadClassroomData(remainingKeys[0]);
+          } else {
+            window.appState.currentClassId = '';
+            window.appState.classData = {
+              classId: '', description: '', sheetUrl: '',
+              firstPlaceCounts: {}, firstPlaceHistory: {},
+              tardyRulesList: [], tardyLogs: [], groups: [],
+              announcements: {}, leaves: [], attendance: {}, completedGroups: {}
+            };
+          }
         }
         if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-        showToast(`已刪除教室 [${classId}]`, 'info');
+        showToast(`已刪除教室【${classId}】`, 'info');
         renderActiveView();
       }
     }

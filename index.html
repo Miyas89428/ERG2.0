@@ -828,7 +828,7 @@
     </div>
   </div>
 
-  <!-- BROADCAST & STORAGE SYNC -->
+  <!-- BROADCAST & LOCAL STORAGE SYNC -->
   <script>
     const localSyncChannel = new BroadcastChannel('erchong_attendance_local_channel');
     
@@ -859,7 +859,7 @@
     });
   </script>
 
-  <!-- FIREBASE MODULES -->
+  <!-- FIREBASE MODULES & REALTIME CROSS-DEVICE SYNC -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -869,6 +869,7 @@
       db: null,
       auth: null,
       appId: typeof __app_id !== 'undefined' ? __app_id : 'erchong-attendance-app',
+      deviceId: 'dev_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now(),
       teacherPassword: '',
       currentClassId: '',
       currentView: 'home',
@@ -905,6 +906,7 @@
     };
 
     let publicClassUnsubscribe = null;
+    let cloudSseSource = null;
 
     async function initFirebase() {
       try {
@@ -951,10 +953,76 @@
       } catch(e) {}
     }
 
+    // 跨裝置雲端廣播同步機制 (確保無密鑰/跨網域/跨裝置均能秒級同步)
+    function setupCloudRealtimeSync(classId) {
+      if (!classId) return;
+      const upperClassId = classId.toUpperCase();
+      const topic = `erchong_attendance_sync_${upperClassId.toLowerCase()}`;
+
+      if (cloudSseSource) {
+        cloudSseSource.close();
+        cloudSseSource = null;
+      }
+
+      try {
+        cloudSseSource = new EventSource(`https://ntfy.sh/${topic}/sse`);
+        cloudSseSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.message) {
+              const syncPayload = JSON.parse(data.message);
+              // 若為自己發出的訊號則忽略
+              if (syncPayload.senderId === window.appState.deviceId) return;
+
+              if (syncPayload.classId === upperClassId && syncPayload.classData) {
+                window.appState.classData = syncPayload.classData;
+                if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
+                window.appState.savedClassrooms[upperClassId] = syncPayload.classData;
+
+                try {
+                  localStorage.setItem('erchong_attendance_saved_classrooms', JSON.stringify(window.appState.savedClassrooms));
+                } catch(e) {}
+
+                renderActiveView();
+              }
+            }
+          } catch(e) {}
+        };
+      } catch(e) {
+        console.warn("Cloud SSE Sync init warning:", e);
+      }
+    }
+
+    async function broadcastCloudSync(classId, classData) {
+      if (!classId || !classData) return;
+      const upperClassId = classId.toUpperCase();
+      const topic = `erchong_attendance_sync_${upperClassId.toLowerCase()}`;
+
+      const payload = {
+        senderId: window.appState.deviceId,
+        classId: upperClassId,
+        classData: classData,
+        timestamp: Date.now()
+      };
+
+      try {
+        fetch(`https://ntfy.sh/${topic}`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Title': 'Attendance Sync' }
+        }).catch(() => {});
+      } catch(e) {}
+    }
+
     function setupClassroomRealtimeSync(classId) {
       if (!classId) return;
+      const upperClassId = classId.toUpperCase();
       const { db, appId } = window.appState;
 
+      // 1. 啟動跨裝置雲端通道
+      setupCloudRealtimeSync(upperClassId);
+
+      // 2. 啟動 Firestore 長連線監聽 (雙向)
       if (publicClassUnsubscribe) {
         publicClassUnsubscribe();
         publicClassUnsubscribe = null;
@@ -962,7 +1030,6 @@
 
       if (!db) return;
 
-      const upperClassId = classId.toUpperCase();
       const publicClassRef = doc(db, 'artifacts', appId, 'public', 'data', 'public_classrooms', upperClassId);
 
       publicClassUnsubscribe = onSnapshot(publicClassRef, (docSnap) => {
@@ -1017,6 +1084,7 @@
         savedClassrooms[currentClassId] = Object.assign({}, classData);
       }
 
+      // 本地與標籤頁同步
       try {
         localStorage.setItem('erchong_attendance_saved_classrooms', JSON.stringify(savedClassrooms));
       } catch(e) {}
@@ -1026,6 +1094,11 @@
         classId: currentClassId,
         classroomsMap: savedClassrooms
       });
+
+      // 跨裝置雲端即時播送
+      if (currentClassId && classData) {
+        broadcastCloudSync(currentClassId, classData);
+      }
 
       if (!db) return;
 
@@ -1104,7 +1177,6 @@
             const upperId = importedClass.classId.toUpperCase();
             if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
             
-            // 融合傳入的班級結構，確保保留本地既有紀錄或補齊必要屬性
             window.appState.savedClassrooms[upperId] = Object.assign({
               firstPlaceCounts: {},
               firstPlaceHistory: {},
@@ -1136,6 +1208,9 @@
         window.appState.currentClassId = upperId;
         if (window.appState.savedClassrooms && window.appState.savedClassrooms[upperId]) {
           window.appState.classData = window.appState.savedClassrooms[upperId];
+        }
+        if (window.setupClassroomRealtimeSync) {
+          window.setupClassroomRealtimeSync(upperId);
         }
       }
     }
@@ -1201,6 +1276,10 @@
       document.getElementById('activeClassBadge').classList.add('hidden');
       document.getElementById('activeClassBadge').classList.remove('flex');
 
+      if (window.appState.currentClassId && window.setupClassroomRealtimeSync) {
+        window.setupClassroomRealtimeSync(window.appState.currentClassId);
+      }
+
       if (viewName === 'home') {
         document.getElementById('viewHome').classList.remove('hidden');
       } else if (viewName === 'teacher') {
@@ -1255,6 +1334,9 @@
 
       if (window.setupTeacherRealtimeSync) {
         window.setupTeacherRealtimeSync(pwdInput);
+      }
+      if (window.appState.currentClassId && window.setupClassroomRealtimeSync) {
+        window.setupClassroomRealtimeSync(window.appState.currentClassId);
       }
 
       switchView('teacher');
@@ -1322,7 +1404,6 @@
           const snap = await getDoc(publicDocRef);
           if (snap.exists()) {
             classObj = snap.data();
-            // 自動快取至 LocalStorage，讓跨裝置搜尋能夠記憶並取得此教室
             if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
             window.appState.savedClassrooms[inputId] = classObj;
             try {
@@ -1475,8 +1556,6 @@
         let baseUrl = window.location.origin + window.location.pathname;
         let qrTargetUrl = baseUrl;
 
-        // 【修復不同裝置掃描搜尋不到的核心關鍵】：將教室結構資料精簡化編碼寫入 Hash (#classData)
-        // 如此一來，其他裝置掃描 QR Code 進入網頁後，會自動接收並存入該裝置的 LocalStorage 與狀態中，立即可搜尋與選擇！
         if (activeId && activeClass) {
           const essentialData = {
             classId: activeClass.classId || activeId,
@@ -1506,6 +1585,284 @@
         if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
         showToast('✅ Google 試算表網址已儲存', 'success');
       }
+    }
+
+    function toggleNewClassroomForm() {
+      const form = document.getElementById('classroomForm');
+      if (form) form.classList.toggle('hidden');
+    }
+
+    function onClassIdInputChange() {
+      const val = document.getElementById('cfgClassId').value.trim().toUpperCase();
+      if (val && window.appState.savedClassrooms && window.appState.savedClassrooms[val]) {
+        const existing = window.appState.savedClassrooms[val];
+        document.getElementById('cfgClassDesc').value = existing.description || '';
+        if (existing.groups) {
+          const text = existing.groups.map(g => `${g.name}：${g.students.join('、')}`).join('\n');
+          document.getElementById('cfgClassStudents').value = text;
+        }
+      }
+    }
+
+    function saveClassroomConfig() {
+      const classId = document.getElementById('cfgClassId').value.trim().toUpperCase();
+      const desc = document.getElementById('cfgClassDesc').value.trim();
+      const rawStudents = document.getElementById('cfgClassStudents').value.trim();
+
+      if (!classId) {
+        showToast('⚠️ 請輸入教室編號！', 'error');
+        return;
+      }
+      if (!rawStudents) {
+        showToast('⚠️ 請輸入組別與學生名單！', 'error');
+        return;
+      }
+
+      const lines = rawStudents.split('\n');
+      const parsedGroups = [];
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let name = '';
+        let stdsStr = '';
+
+        if (trimmed.includes('：')) {
+          const parts = trimmed.split('：');
+          name = parts[0].trim();
+          stdsStr = parts.slice(1).join('：').trim();
+        } else if (trimmed.includes(':')) {
+          const parts = trimmed.split(':');
+          name = parts[0].trim();
+          stdsStr = parts.slice(1).join(':').trim();
+        } else {
+          name = `組別${parsedGroups.length + 1}`;
+          stdsStr = trimmed;
+        }
+
+        const students = stdsStr.split(/[、,，\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+        if (name && students.length > 0) {
+          parsedGroups.push({ name, students });
+        }
+      });
+
+      if (parsedGroups.length === 0) {
+        showToast('⚠️ 無法解析學生名單，請確認格式（例如：第一組：張三、李四）', 'error');
+        return;
+      }
+
+      let classObj = (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) || {
+        classId: classId,
+        description: desc,
+        sheetUrl: '',
+        firstPlaceCounts: {},
+        firstPlaceHistory: {},
+        tardyRulesList: [
+          {
+            id: 'rule_default_1',
+            targetGroup: 'ALL',
+            days: [1, 2, 3, 4, 5],
+            time: '08:15:00',
+            label: '預設晨間點名遲到門檻'
+          }
+        ],
+        tardyLogs: [],
+        groups: [],
+        announcements: {},
+        leaves: [],
+        attendance: {},
+        completedGroups: {}
+      };
+
+      classObj.classId = classId;
+      classObj.description = desc;
+      classObj.groups = parsedGroups;
+
+      window.appState.currentClassId = classId;
+      window.appState.classData = classObj;
+      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
+      window.appState.savedClassrooms[classId] = classObj;
+
+      if (window.setupClassroomRealtimeSync) {
+        window.setupClassroomRealtimeSync(classId);
+      }
+      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+
+      showToast(`✅ 教室【${classId}】設定已成功儲存！`, 'success');
+      document.getElementById('classroomForm').classList.add('hidden');
+      renderActiveView();
+    }
+
+    function renderClassroomList() {
+      const container = document.getElementById('classroomListContainer');
+      if (!container) return;
+
+      const saved = window.appState.savedClassrooms || {};
+      const keys = Object.keys(saved);
+
+      if (keys.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚未建立任何教室</p>`;
+        return;
+      }
+
+      container.innerHTML = keys.map(k => {
+        const item = saved[k];
+        const isActive = (k === window.appState.currentClassId);
+        const bgClass = isActive ? 'bg-purple-100 border-purple-300 text-purple-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
+
+        return `
+          <div class="p-2 border rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors ${bgClass}" onclick="switchTeacherActiveClass('${k}')">
+            <div>
+              <span class="font-mono font-bold">${k}</span>
+              <span class="text-[10px] text-slate-500 ml-1">(${item.description || '無備註'})</span>
+            </div>
+            ${isActive ? '<span class="text-[10px] bg-purple-600 text-white px-1.5 py-0.5 rounded-full">使用中</span>' : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function switchTeacherActiveClass(classId) {
+      if (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) {
+        window.appState.currentClassId = classId;
+        window.appState.classData = window.appState.savedClassrooms[classId];
+        if (window.setupClassroomRealtimeSync) {
+          window.setupClassroomRealtimeSync(classId);
+        }
+        showToast(`已切換目前教室至：${classId}`, 'info');
+        renderActiveView();
+      }
+    }
+
+    function openTardyModal() {
+      populateTardyGroupOptions();
+      renderActiveTardyRulesList();
+      renderTardyLogs();
+      document.getElementById('modalTardy').classList.remove('hidden');
+    }
+
+    function toggleAllWeekdays() {
+      const cbs = document.querySelectorAll('.tardy-day-cb');
+      const allChecked = Array.from(cbs).every(cb => cb.checked);
+      cbs.forEach(cb => cb.checked = !allChecked);
+    }
+
+    function populateTardyGroupOptions() {
+      const select = document.getElementById('tardyBatchTargetGroup');
+      if (!select) return;
+      select.innerHTML = '<option value="ALL">全班所有組別</option>';
+
+      const groups = (window.appState.classData && window.appState.classData.groups) || [];
+      groups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.name;
+        opt.innerText = g.name;
+        select.appendChild(opt);
+      });
+    }
+
+    function addNewTardyRuleEntry() {
+      const timeVal = document.getElementById('tardyTimeInput').value;
+      const groupVal = document.getElementById('tardyBatchTargetGroup').value;
+      const labelVal = document.getElementById('tardyRuleNameInput').value.trim();
+
+      const cbs = document.querySelectorAll('.tardy-day-cb:checked');
+      const selectedDays = Array.from(cbs).map(cb => parseInt(cb.value, 10));
+
+      if (!timeVal) {
+        showToast('⚠️ 請選擇遲到時間！', 'error');
+        return;
+      }
+      if (selectedDays.length === 0) {
+        showToast('⚠️ 請至少選擇一個適用星期！', 'error');
+        return;
+      }
+
+      const newRule = {
+        id: 'rule_' + Date.now(),
+        targetGroup: groupVal,
+        days: selectedDays,
+        time: timeVal.length === 5 ? `${timeVal}:00` : timeVal,
+        label: labelVal || `${groupVal === 'ALL' ? '全班' : groupVal} 遲到門檻`
+      };
+
+      if (!window.appState.classData.tardyRulesList) window.appState.classData.tardyRulesList = [];
+      window.appState.classData.tardyRulesList.push(newRule);
+
+      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+      showToast('✅ 已新增遲到規則', 'success');
+      renderActiveTardyRulesList();
+    }
+
+    function deleteTardyRule(ruleId) {
+      if (!window.appState.classData.tardyRulesList) return;
+      window.appState.classData.tardyRulesList = window.appState.classData.tardyRulesList.filter(r => r.id !== ruleId);
+      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+      showToast('🗑️ 已刪除該遲到規則', 'info');
+      renderActiveTardyRulesList();
+    }
+
+    function renderActiveTardyRulesList() {
+      const container = document.getElementById('activeTardyRulesList');
+      const countBadge = document.getElementById('activeRuleCountBadge');
+      if (!container) return;
+
+      const rules = (window.appState.classData && window.appState.classData.tardyRulesList) || [];
+      if (countBadge) countBadge.innerText = `${rules.length} 條規則`;
+
+      if (rules.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-3">尚無生效的遲到規則</p>`;
+        return;
+      }
+
+      container.innerHTML = rules.map(r => {
+        const daysStr = r.days.map(d => WEEKDAY_NAMES[d].replace('星期', '週')).join('、');
+        return `
+          <div class="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between text-xs shadow-sm">
+            <div>
+              <span class="font-bold text-slate-800">${r.label}</span>
+              <span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded ml-1 font-mono">${r.time}</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">適用：${r.targetGroup === 'ALL' ? '全班' : r.targetGroup} | ${daysStr}</p>
+            </div>
+            <button onclick="deleteTardyRule('${r.id}')" class="text-slate-400 hover:text-rose-600 p-1">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function clearTardyLogs() {
+      if (!confirm('確定要清空學生遲到紀錄嗎？')) return;
+      if (window.appState.classData) {
+        window.appState.classData.tardyLogs = [];
+        if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+        showToast('🗑️ 已清空遲到紀錄', 'info');
+        renderTardyLogs();
+      }
+    }
+
+    function renderTardyLogs() {
+      const container = document.getElementById('tardyLogsContainer');
+      if (!container) return;
+
+      const logs = (window.appState.classData && window.appState.classData.tardyLogs) || [];
+
+      if (logs.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-3">尚無學生遲到紀錄</p>`;
+        return;
+      }
+
+      container.innerHTML = logs.map(l => `
+        <div class="bg-rose-50/70 border border-rose-200 rounded-xl p-2 flex items-center justify-between text-xs text-rose-900">
+          <div>
+            <span class="font-bold">${l.student}</span>
+            <span class="text-[10px] text-slate-500 ml-1">(${l.group})</span>
+            <span class="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded ml-1">${l.date} ${l.time}</span>
+            <p class="text-[10px] text-rose-700 mt-0.5">違反：${l.ruleDetails || '遲到門檻'}</p>
+          </div>
+        </div>
+      `).join('');
     }
 
     function renderActiveView() {
@@ -2108,7 +2465,7 @@
       const attendanceMap = (window.appState.classData && window.appState.classData.attendance) || {};
       const groups = (window.appState.classData && window.appState.classData.groups) || [];
 
-      let csvContent = "\uFEFF日期,組別,學生姓名,點名狀態/時間\n";
+      let csvContent = "\uFEFF日期,組別,學生姓名,點名狀態/時間,備註/請假事由\n";
 
       let cur = new Date(startDate + 'T00:00:00');
       const end = new Date(endDate + 'T00:00:00');
@@ -2118,16 +2475,21 @@
         const dayAtt = attendanceMap[dStr] || {};
         const leavesToday = getLeavesForDate(dStr);
 
-        groups.forEach(g => {
-          g.students.forEach(std => {
-            let status = '未點名';
-            if (dayAtt[std]) {
-              status = `已到班 (${dayAtt[std]})`;
-            } else {
-              const l = leavesToday.find(item => item.student === std);
-              if (l) status = `${l.type} (${l.reason})`;
+        groups.forEach(group => {
+          group.students.forEach(student => {
+            const attTime = dayAtt[student] || '';
+            const leaveObj = leavesToday.find(l => l.student === student);
+            let statusStr = '未到';
+            let noteStr = '';
+
+            if (attTime) {
+              statusStr = `已到班 (${attTime})`;
+            } else if (leaveObj) {
+              statusStr = leaveObj.type;
+              noteStr = leaveObj.reason;
             }
-            csvContent += `"${dStr}","${g.name}","${std}","${status}"\n`;
+
+            csvContent += `"${dStr}","${group.name}","${student}","${statusStr}","${noteStr}"\n`;
           });
         });
 
@@ -2138,333 +2500,13 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `點名紀錄_${window.appState.currentClassId || '班級'}_${startDate}_至_${endDate}.csv`);
+      link.setAttribute('download', `點名紀錄_${window.appState.currentClassId || '資優班'}_${startDate}_至_${endDate}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       closeModal('modalExportAttendance');
-      showToast('📥 點名紀錄 CSV 已成功匯出下載！', 'success');
-    }
-
-    function toggleNewClassroomForm() {
-      const form = document.getElementById('classroomForm');
-      if (form) {
-        form.classList.toggle('hidden');
-      }
-    }
-
-    function onClassIdInputChange() {
-      const val = document.getElementById('cfgClassId').value.trim().toUpperCase();
-      if (val && window.appState.savedClassrooms && window.appState.savedClassrooms[val]) {
-        const existing = window.appState.savedClassrooms[val];
-        document.getElementById('cfgClassDesc').value = existing.description || '';
-        if (existing.groups) {
-          const textArr = existing.groups.map(g => `${g.name}：${g.students.join('、')}`);
-          document.getElementById('cfgClassStudents').value = textArr.join('\n');
-        }
-      }
-    }
-
-    function saveClassroomConfig() {
-      const classId = document.getElementById('cfgClassId').value.trim().toUpperCase();
-      const description = document.getElementById('cfgClassDesc').value.trim();
-      const rawStudents = document.getElementById('cfgClassStudents').value.trim();
-
-      if (!classId) {
-        showToast('⚠️ 請輸入教室編號！', 'error');
-        return;
-      }
-
-      const groups = [];
-      if (rawStudents) {
-        const lines = rawStudents.split('\n');
-        lines.forEach(line => {
-          const trimmed = line.trim();
-          if (!trimmed) return;
-          let name = '';
-          let stList = [];
-
-          if (trimmed.includes('：') || trimmed.includes(':')) {
-            const parts = trimmed.split(/：|:/);
-            name = parts[0].trim();
-            stList = parts[1].split(/,|、|\s+/).map(s => s.trim()).filter(Boolean);
-          } else {
-            name = `第 ${groups.length + 1} 組`;
-            stList = trimmed.split(/,|、|\s+/).map(s => s.trim()).filter(Boolean);
-          }
-
-          if (name && stList.length > 0) {
-            groups.push({ name, students: stList });
-          }
-        });
-      }
-
-      let classObj = (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) || {
-        classId,
-        description,
-        sheetUrl: '',
-        firstPlaceCounts: {},
-        firstPlaceHistory: {},
-        tardyRulesList: [{
-          id: 'rule_default_1',
-          targetGroup: 'ALL',
-          days: [1, 2, 3, 4, 5],
-          time: '08:15:00',
-          label: '預設晨間點名遲到門檻'
-        }],
-        tardyLogs: [],
-        groups: [],
-        announcements: {},
-        leaves: [],
-        attendance: {},
-        completedGroups: {}
-      };
-
-      classObj.classId = classId;
-      classObj.description = description;
-      classObj.groups = groups;
-
-      window.appState.currentClassId = classId;
-      window.appState.classData = classObj;
-      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
-      window.appState.savedClassrooms[classId] = classObj;
-
-      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(classId);
-
-      showToast(`✅ 教室【${classId}】設定已儲存！`, 'success');
-      
-      const badge = document.getElementById('activeClassText');
-      if (badge) badge.innerText = `教室：${classId}`;
-
-      renderActiveView();
-    }
-
-    function renderClassroomList() {
-      const container = document.getElementById('classroomListContainer');
-      if (!container) return;
-
-      const saved = window.appState.savedClassrooms || {};
-      const keys = Object.keys(saved);
-
-      if (keys.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚未建立任何教室</p>`;
-        return;
-      }
-
-      container.innerHTML = keys.map(k => {
-        const item = saved[k];
-        const isCurrent = (k === window.appState.currentClassId);
-        const bgStyle = isCurrent ? 'bg-purple-50 border-purple-300 font-bold' : 'bg-slate-50 border-slate-200 hover:bg-slate-100';
-
-        return `
-          <div class="flex items-center justify-between p-2 rounded-xl border ${bgStyle} text-xs transition-colors">
-            <div class="cursor-pointer flex-1 truncate pr-2" onclick="loadClassroomConfig('${k}')">
-              <span class="text-purple-700 font-mono font-bold">${k}</span>
-              <span class="text-slate-500 text-[11px] ml-1 truncate">${item.description || '無備註'}</span>
-            </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <button onclick="loadClassroomConfig('${k}')" class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-[11px]" title="載入/切換此教室">
-                載入
-              </button>
-              <button onclick="deleteClassroomConfig('${k}')" class="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="刪除教室">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function loadClassroomConfig(classId) {
-      if (!window.appState.savedClassrooms || !window.appState.savedClassrooms[classId]) return;
-
-      const target = window.appState.savedClassrooms[classId];
-      window.appState.currentClassId = classId;
-      window.appState.classData = target;
-
-      document.getElementById('cfgClassId').value = target.classId || '';
-      document.getElementById('cfgClassDesc').value = target.description || '';
-      if (target.groups) {
-        const textArr = target.groups.map(g => `${g.name}：${g.students.join('、')}`);
-        document.getElementById('cfgClassStudents').value = textArr.join('\n');
-      }
-
-      if (window.setupClassroomRealtimeSync) {
-        window.setupClassroomRealtimeSync(classId);
-      }
-
-      const badge = document.getElementById('activeClassText');
-      if (badge) badge.innerText = `教室：${classId}`;
-
-      showToast(`🏫 已載入教室【${classId}】`, 'info');
-      renderActiveView();
-    }
-
-    function deleteClassroomConfig(classId) {
-      if (!confirm(`確定要刪除教室【${classId}】嗎？`)) return;
-
-      if (window.appState.savedClassrooms) {
-        delete window.appState.savedClassrooms[classId];
-        try {
-          localStorage.setItem('erchong_attendance_saved_classrooms', JSON.stringify(window.appState.savedClassrooms));
-        } catch(e){}
-      }
-
-      if (window.appState.currentClassId === classId) {
-        const remaining = Object.keys(window.appState.savedClassrooms || {});
-        if (remaining.length > 0) {
-          loadClassroomConfig(remaining[0]);
-        } else {
-          window.appState.currentClassId = '';
-          window.appState.classData = {
-            classId: '', description: '', sheetUrl: '', firstPlaceCounts: {}, firstPlaceHistory: {},
-            tardyRulesList: [], tardyLogs: [], groups: [], announcements: {}, leaves: [], attendance: {}, completedGroups: {}
-          };
-        }
-      }
-
-      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast(`🗑️ 已刪除教室【${classId}】`, 'info');
-      renderActiveView();
-    }
-
-    function openTardyModal() {
-      populateTardyGroupOptions();
-      renderActiveTardyRulesList();
-      renderTardyLogs();
-      document.getElementById('modalTardy').classList.remove('hidden');
-    }
-
-    function populateTardyGroupOptions() {
-      const select = document.getElementById('tardyBatchTargetGroup');
-      if (!select) return;
-
-      const groups = (window.appState.classData && window.appState.classData.groups) || [];
-      let html = `<option value="ALL">全班所有組別</option>`;
-
-      groups.forEach(g => {
-        html += `<option value="${g.name}">${g.name}</option>`;
-      });
-
-      select.innerHTML = html;
-    }
-
-    function addNewTardyRuleEntry() {
-      const timeVal = document.getElementById('tardyTimeInput').value;
-      const targetGroup = document.getElementById('tardyBatchTargetGroup').value;
-      const labelVal = document.getElementById('tardyRuleNameInput').value.trim() || '遲到規則';
-
-      const selectedDays = [];
-      document.querySelectorAll('.tardy-day-cb:checked').forEach(cb => {
-        selectedDays.push(parseInt(cb.value, 10));
-      });
-
-      if (!timeVal) {
-        showToast('⚠️ 請設定遲到時間！', 'error');
-        return;
-      }
-      if (selectedDays.length === 0) {
-        showToast('⚠️ 請至少選擇一個適用星期！', 'error');
-        return;
-      }
-
-      const newRule = {
-        id: 'rule_' + Date.now(),
-        targetGroup,
-        days: selectedDays,
-        time: timeVal.length === 5 ? `${timeVal}:00` : timeVal,
-        label: labelVal
-      };
-
-      if (!window.appState.classData.tardyRulesList) window.appState.classData.tardyRulesList = [];
-      window.appState.classData.tardyRulesList.push(newRule);
-
-      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast('✅ 新增遲到規則成功！', 'success');
-
-      renderActiveTardyRulesList();
-    }
-
-    function renderActiveTardyRulesList() {
-      const container = document.getElementById('activeTardyRulesList');
-      const badge = document.getElementById('activeRuleCountBadge');
-      if (!container) return;
-
-      const rules = (window.appState.classData && window.appState.classData.tardyRulesList) || [];
-      if (badge) badge.innerText = `${rules.length} 條規則`;
-
-      if (rules.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">目前未設定遲到規則</p>`;
-        return;
-      }
-
-      container.innerHTML = rules.map(r => {
-        const dayNames = (r.days || []).map(d => WEEKDAY_NAMES[d] || d).join('、');
-        return `
-          <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs shadow-sm">
-            <div>
-              <div class="font-bold text-slate-800 flex items-center gap-1.5">
-                <span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[11px] font-mono">${r.time}</span>
-                <span>${r.label}</span>
-                <span class="text-slate-400 font-normal">(${r.targetGroup === 'ALL' ? '全班' : r.targetGroup})</span>
-              </div>
-              <div class="text-[11px] text-slate-500 mt-0.5">適用日期：${dayNames}</div>
-            </div>
-            <button onclick="deleteTardyRule('${r.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition-colors" title="刪除規則">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function deleteTardyRule(ruleId) {
-      if (!window.appState.classData.tardyRulesList) return;
-      window.appState.classData.tardyRulesList = window.appState.classData.tardyRulesList.filter(r => r.id !== ruleId);
-
-      if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast('🗑️ 已刪除遲到規則', 'info');
-      renderActiveTardyRulesList();
-    }
-
-    function renderTardyLogs() {
-      const container = document.getElementById('tardyLogsContainer');
-      if (!container) return;
-
-      const logs = (window.appState.classData && window.appState.classData.tardyLogs) || [];
-
-      if (logs.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚無遲到紀錄</p>`;
-        return;
-      }
-
-      container.innerHTML = logs.map(l => `
-        <div class="bg-rose-50 border border-rose-200 rounded-xl p-2 text-xs flex items-center justify-between">
-          <div>
-            <span class="font-bold text-rose-900">${l.student}</span>
-            <span class="text-slate-500 text-[11px] ml-1">(${l.group})</span>
-            <div class="text-[11px] text-rose-700 mt-0.5">時間：${l.date} ${l.time} - ${l.ruleDetails || '違反遲到規則'}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function clearTardyLogs() {
-      if (!confirm('確定要清空所有學生的遲到紀錄嗎？')) return;
-      if (window.appState.classData) {
-        window.appState.classData.tardyLogs = [];
-        if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-        showToast('🗑️ 已清空遲到紀錄', 'info');
-        renderTardyLogs();
-      }
-    }
-
-    function toggleAllWeekdays() {
-      const cbs = document.querySelectorAll('.tardy-day-cb');
-      const allChecked = Array.from(cbs).every(cb => cb.checked);
-      cbs.forEach(cb => cb.checked = !allChecked);
+      showToast('📥 點名紀錄 CSV 已成功匯出！', 'success');
     }
   </script>
 </body>

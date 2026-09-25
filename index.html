@@ -1455,8 +1455,11 @@
         icon.classList.remove('-rotate-180');
         icon.classList.add('rotate-0');
 
-        const currentUrl = window.location.origin + window.location.pathname;
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(currentUrl)}`;
+        let targetUrl = window.location.origin + window.location.pathname;
+        if (window.appState.currentClassId) {
+          targetUrl += `?classId=${encodeURIComponent(window.appState.currentClassId)}`;
+        }
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(targetUrl)}`;
       } else {
         drawer.classList.add('translate-x-[calc(100%-3rem)]');
         drawer.classList.remove('translate-x-0');
@@ -1512,6 +1515,20 @@
     document.addEventListener('DOMContentLoaded', () => {
       startCSTClock();
       if (window.initFirebase) window.initFirebase();
+
+      // 支援 QR Code 自動判讀網址參數
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlClassId = urlParams.get('classId');
+      if (urlClassId) {
+        setTimeout(() => {
+          openStudentClassModal();
+          const inputElem = document.getElementById('studentInputClassId');
+          if (inputElem) {
+            inputElem.value = urlClassId.toUpperCase();
+            updateStudentGroupDropdown();
+          }
+        }, 300);
+      }
 
       const announceInput = document.getElementById('teacherAnnounceInput');
       if (announceInput) {
@@ -1802,7 +1819,7 @@
         groupCard.className = 'bg-white/90 border border-slate-200/80 rounded-3xl p-3 sm:p-4 flex flex-col items-center shadow-sm relative hover:border-sky-200 transition-all w-full';
         groupCard.setAttribute('dir', 'ltr');
 
-        /* 指令 1 修正：排除請假、晚到人員後，剩下小組成員皆點擊姓名條完成點名即算全組到齊 */
+        /* 扣除請假/晚到人員後，計算剩餘應到人員是否皆完成點名 */
         const absentOrLateStudents = leavesToday.map(l => l.student);
         const requiredStudents = group.students.filter(s => !absentOrLateStudents.includes(s));
         const checkedRequiredStudents = requiredStudents.filter(s => !!attendance[s]);
@@ -2146,61 +2163,53 @@
         return;
       }
 
-      const lines = rawStudents.split('\n');
-      const groups = [];
+      const lines = rawStudents.split('\n').filter(l => l.trim().length > 0);
+      const parsedGroups = [];
 
       lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-
-        let parts = trimmed.split(/[:：]/);
+        const parts = line.split(/[:：]/);
         if (parts.length >= 2) {
-          const groupName = parts[0].trim();
-          const studentList = parts[1].split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean);
-          if (groupName && studentList.length > 0) {
-            groups.push({ name: groupName, students: studentList });
+          const gName = parts[0].trim();
+          const stds = parts[1].split(/[,、，\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+          if (gName && stds.length > 0) {
+            parsedGroups.push({ name: gName, students: stds });
           }
         }
       });
 
-      if (groups.length === 0) {
-        showToast('⚠️ 請依格式輸入組別與學生，例如：第一組：小明、小華', 'error');
+      if (parsedGroups.length === 0) {
+        showToast('⚠️ 名單格式不正確，請依「第一組：學生A、學生B」格式輸入！', 'error');
         return;
       }
 
-      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
+      const existingClass = (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) || {};
 
-      const existingData = window.appState.savedClassrooms[classId] || {};
-      const newClassData = {
+      const classroomObj = {
         classId: classId,
         description: desc,
-        sheetUrl: existingData.sheetUrl || '',
-        firstPlaceCounts: existingData.firstPlaceCounts || {},
-        firstPlaceHistory: existingData.firstPlaceHistory || {},
-        tardyRulesList: existingData.tardyRulesList || [
-          {
-            id: 'rule_default_1',
-            targetGroup: 'ALL',
-            days: [1, 2, 3, 4, 5],
-            time: '08:15:00',
-            label: '預設晨間點名遲到門檻'
-          }
+        sheetUrl: existingClass.sheetUrl || '',
+        groups: parsedGroups,
+        announcements: existingClass.announcements || {},
+        leaves: existingClass.leaves || [],
+        attendance: existingClass.attendance || {},
+        completedGroups: existingClass.completedGroups || {},
+        firstPlaceCounts: existingClass.firstPlaceCounts || {},
+        firstPlaceHistory: existingClass.firstPlaceHistory || {},
+        tardyRulesList: existingClass.tardyRulesList || [
+          { id: 'rule_default_1', targetGroup: 'ALL', days: [1, 2, 3, 4, 5], time: '08:15:00', label: '預設晨間點名遲到門檻' }
         ],
-        tardyLogs: existingData.tardyLogs || [],
-        groups: groups,
-        announcements: existingData.announcements || {},
-        leaves: existingData.leaves || [],
-        attendance: existingData.attendance || {},
-        completedGroups: existingData.completedGroups || {}
+        tardyLogs: existingClass.tardyLogs || []
       };
 
-      window.appState.savedClassrooms[classId] = newClassData;
       window.appState.currentClassId = classId;
-      window.appState.classData = newClassData;
+      window.appState.classData = classroomObj;
+      if (!window.appState.savedClassrooms) window.appState.savedClassrooms = {};
+      window.appState.savedClassrooms[classId] = classroomObj;
 
       if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
+      if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(classId);
 
-      showToast(`✅ 教室 ${classId} 設定已儲存並載入！`, 'success');
+      showToast(`✅ 教室【${classId}】設定已儲存！`, 'success');
       toggleNewClassroomForm();
       renderActiveView();
     }
@@ -2213,57 +2222,50 @@
       const keys = Object.keys(savedMap);
 
       if (keys.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 text-center py-2">尚未建立任何教室</p>`;
+        container.innerHTML = '<p class="text-xs text-slate-400 text-center py-2">尚未建立任何教室</p>';
         return;
       }
 
       container.innerHTML = keys.map(k => {
         const item = savedMap[k];
-        const isActive = (k === window.appState.currentClassId);
-        const bg = isActive ? 'bg-purple-100 border-purple-300 text-purple-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
+        const isCurrent = (k === window.appState.currentClassId);
+        const bgClass = isCurrent ? 'bg-purple-100 border-purple-300 text-purple-900 font-bold' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
 
         return `
-          <div class="${bg} border rounded-xl p-2 text-xs flex items-center justify-between transition-colors">
-            <div class="cursor-pointer flex-1 truncate" onclick="selectClassroomFromList('${k}')">
-              <span class="font-mono">${k}</span>
-              <span class="text-[11px] opacity-75 ml-1">(${item.description || '無備註'})</span>
+          <div class="p-2 border rounded-xl flex items-center justify-between text-xs transition-colors ${bgClass}">
+            <div class="cursor-pointer flex-1" onclick="selectClassroom('${k}')">
+              <span class="font-mono font-bold">${k}</span>
+              <span class="text-[10px] text-slate-500 ml-1">(${item.description || '無備註'})</span>
             </div>
-            <button onclick="deleteClassroomFromList('${k}')" class="text-slate-400 hover:text-rose-600 p-1 ml-1" title="刪除教室">
-              <i class="fa-solid fa-trash-can"></i>
+            <button onclick="deleteClassroom('${k}')" class="text-slate-400 hover:text-rose-600 p-1" title="刪除教室">
+              <i class="fa-solid fa-trash-can text-xs"></i>
             </button>
           </div>
         `;
       }).join('');
     }
 
-    function selectClassroomFromList(classId) {
+    function selectClassroom(classId) {
       if (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) {
         window.appState.currentClassId = classId;
         window.appState.classData = window.appState.savedClassrooms[classId];
-        
-        if (window.setupClassroomRealtimeSync) {
-          window.setupClassroomRealtimeSync(classId);
-        }
-
-        showToast(`🏫 已切換至教室：${classId}`, 'success');
+        if (window.setupClassroomRealtimeSync) window.setupClassroomRealtimeSync(classId);
+        showToast(`🏫 已切換至教室【${classId}】`, 'success');
         renderActiveView();
       }
     }
 
-    function deleteClassroomFromList(classId) {
-      if (!confirm(`確定要刪除教室 ${classId} 及其相關設定嗎？`)) return;
-
-      if (window.appState.savedClassrooms) {
+    function deleteClassroom(classId) {
+      if (!confirm(`確定要刪除教室【${classId}】嗎？`)) return;
+      if (window.appState.savedClassrooms && window.appState.savedClassrooms[classId]) {
         delete window.appState.savedClassrooms[classId];
         if (window.appState.currentClassId === classId) {
           const remainingKeys = Object.keys(window.appState.savedClassrooms);
           window.appState.currentClassId = remainingKeys.length > 0 ? remainingKeys[0] : '';
-          window.appState.classData = window.appState.currentClassId ? window.appState.savedClassrooms[window.appState.currentClassId] : {
-            classId: '', description: '', sheetUrl: '', firstPlaceCounts: {}, firstPlaceHistory: {}, tardyRulesList: [], tardyLogs: [], groups: [], announcements: {}, leaves: {}, attendance: {}, completedGroups: {}
-          };
+          window.appState.classData = window.appState.currentClassId ? window.appState.savedClassrooms[window.appState.currentClassId] : { groups: [] };
         }
         if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-        showToast(`🗑️ 已刪除教室 ${classId}`, 'info');
+        showToast(`🗑️ 已刪除教室【${classId}】`, 'info');
         renderActiveView();
       }
     }
@@ -2282,50 +2284,48 @@
     }
 
     function populateTardyGroupOptions() {
-      const select = document.getElementById('tardyBatchTargetGroup');
-      if (!select) return;
+      const selectElem = document.getElementById('tardyBatchTargetGroup');
+      if (!selectElem) return;
 
-      select.innerHTML = '<option value="ALL">全班所有組別</option>';
+      selectElem.innerHTML = '<option value="ALL">全班所有組別</option>';
       const groups = window.appState.classData ? (window.appState.classData.groups || []) : [];
       groups.forEach(g => {
         const opt = document.createElement('option');
         opt.value = g.name;
         opt.innerText = g.name;
-        select.appendChild(opt);
+        selectElem.appendChild(opt);
       });
     }
 
     function addNewTardyRuleEntry() {
       const timeVal = document.getElementById('tardyTimeInput').value;
       const targetGroup = document.getElementById('tardyBatchTargetGroup').value;
-      const labelVal = document.getElementById('tardyRuleNameInput').value.trim();
+      const label = document.getElementById('tardyRuleNameInput').value.trim() || '遲到門檻';
 
-      const dayCbs = document.querySelectorAll('.tardy-day-cb:checked');
-      const selectedDays = Array.from(dayCbs).map(cb => parseInt(cb.value, 10));
+      const selectedDays = Array.from(document.querySelectorAll('.tardy-day-cb:checked')).map(cb => parseInt(cb.value, 10));
 
+      if (selectedDays.length === 0) {
+        showToast('⚠️ 請至少勾選一個適用星期！', 'error');
+        return;
+      }
       if (!timeVal) {
         showToast('⚠️ 請設定遲到時間！', 'error');
         return;
       }
-      if (selectedDays.length === 0) {
-        showToast('⚠️ 請至少選擇一個適用星期！', 'error');
-        return;
-      }
 
-      const formattedTime = timeVal.length === 5 ? `${timeVal}:00` : timeVal;
       const newRule = {
         id: 'rule_' + Date.now(),
-        targetGroup: targetGroup,
+        targetGroup,
         days: selectedDays,
-        time: formattedTime,
-        label: labelVal || `${targetGroup === 'ALL' ? '全班' : targetGroup} 遲到門檻 (${formattedTime})`
+        time: timeVal.length === 5 ? `${timeVal}:00` : timeVal,
+        label
       };
 
       if (!window.appState.classData.tardyRulesList) window.appState.classData.tardyRulesList = [];
       window.appState.classData.tardyRulesList.push(newRule);
 
       if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast('✅ 已新增遲到規則！', 'success');
+      showToast('✅ 遲到規則已新增成功', 'success');
 
       document.getElementById('tardyRuleNameInput').value = '';
       renderActiveTardyRulesList();
@@ -2335,7 +2335,7 @@
       if (!window.appState.classData.tardyRulesList) return;
       window.appState.classData.tardyRulesList = window.appState.classData.tardyRulesList.filter(r => r.id !== ruleId);
       if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-      showToast('🗑️ 已刪除該遲到規則', 'info');
+      showToast('🗑️ 已刪除遲到規則', 'info');
       renderActiveTardyRulesList();
     }
 
@@ -2348,24 +2348,25 @@
       if (badge) badge.innerText = `${rules.length} 條規則`;
 
       if (rules.length === 0) {
-        container.innerHTML = `<p class="text-slate-400 text-center py-3 text-xs">尚無設定任何遲到規則</p>`;
+        container.innerHTML = `<p class="text-slate-400 text-center py-3">尚無設定任何遲到規則</p>`;
         return;
       }
 
       container.innerHTML = rules.map(r => {
-        const dayNames = r.days.map(d => WEEKDAY_NAMES[d]).join('、');
+        const daysText = r.days.sort().map(d => WEEKDAY_NAMES[d].replace('星期', '週')).join('、');
+        const grpText = r.targetGroup === 'ALL' ? '全班' : r.targetGroup;
+
         return `
-          <div class="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between text-xs shadow-sm">
+          <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs shadow-sm">
             <div>
               <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                <span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px]">${grpText}</span>
                 <span>${r.label}</span>
-                <span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-mono">${r.time}</span>
+                <span class="text-amber-700 font-mono font-bold">(${r.time})</span>
               </div>
-              <div class="text-[11px] text-slate-500 mt-0.5">
-                適用對象：<span class="font-semibold text-slate-700">${r.targetGroup === 'ALL' ? '全班' : r.targetGroup}</span> ｜ 星期：${dayNames}
-              </div>
+              <p class="text-[10px] text-slate-500 mt-0.5">適用日期：${daysText}</p>
             </div>
-            <button onclick="deleteTardyRule('${r.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition-colors" title="刪除規則">
+            <button onclick="deleteTardyRule('${r.id}')" class="text-slate-400 hover:text-rose-600 p-1">
               <i class="fa-solid fa-trash-can"></i>
             </button>
           </div>
@@ -2378,30 +2379,28 @@
       if (!container) return;
 
       const logs = window.appState.classData ? (window.appState.classData.tardyLogs || []) : [];
-
       if (logs.length === 0) {
-        container.innerHTML = `<p class="text-slate-400 text-center py-2 text-xs">目前無遲到紀錄</p>`;
+        container.innerHTML = `<p class="text-slate-400 text-center py-2">目前無遲到紀錄</p>`;
         return;
       }
 
       container.innerHTML = logs.map(l => `
-        <div class="bg-white border border-slate-200 rounded-xl p-2 text-xs flex items-center justify-between">
+        <div class="bg-rose-50 border border-rose-200 p-2 rounded-xl text-xs flex items-center justify-between text-rose-900">
           <div>
-            <span class="font-bold text-slate-800">${l.student}</span>
-            <span class="text-slate-500 ml-1">(${l.group})</span>
-            <span class="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-mono ml-1 text-[11px]">${l.date} ${l.time}</span>
+            <span class="font-bold">${l.student}</span> (${l.group})
+            <span class="text-[10px] opacity-75 font-mono ml-1">${l.date} ${l.time}</span>
+            <p class="text-[10px] text-rose-700 mt-0.5">${l.ruleDetails}</p>
           </div>
-          <span class="text-[10px] text-slate-400 truncate max-w-[150px]">${l.ruleDetails}</span>
         </div>
       `).join('');
     }
 
     function clearTardyLogs() {
-      if (!confirm('確定要清空所有學生遲到紀錄嗎？')) return;
+      if (!confirm('確定要清空所有遲到紀錄嗎？')) return;
       if (window.appState.classData) {
         window.appState.classData.tardyLogs = [];
         if (window.saveClassroomToFirestore) window.saveClassroomToFirestore();
-        showToast('🧹 已清空遲到紀錄', 'info');
+        showToast('🗑️ 遲到紀錄已清空', 'info');
         renderTardyLogs();
       }
     }
